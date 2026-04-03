@@ -56,10 +56,8 @@ def move_window(x: int, y: int):
 def screenshot(filename: str = None) -> str:
     hwnd = get_hwnd()
     rect = win32gui.GetWindowRect(hwnd)
-    dpi = windll.user32.GetDpiForWindow(hwnd)
-    scale = dpi / 96.0
-    w = int((rect[2] - rect[0]) * scale)
-    h = int((rect[3] - rect[1]) * scale)
+    w = int((rect[2] - rect[0]))
+    h = int((rect[3] - rect[1]))
 
     hwnd_dc = win32gui.GetWindowDC(hwnd)
     mfc_dc = win32ui.CreateDCFromHandle(hwnd_dc)
@@ -79,6 +77,8 @@ def screenshot(filename: str = None) -> str:
     mfc_dc.DeleteDC()
     win32gui.ReleaseDC(hwnd, hwnd_dc)
 
+    img = img.crop((0, 0, img.width - 16, img.height - 41))
+
     if filename is None:
         filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".png"
 
@@ -86,7 +86,7 @@ def screenshot(filename: str = None) -> str:
     path = os.path.join("image", filename)
     img.save(path)
     print(f"[macro] 스크린샷 저장됨: {path}")
-    return path
+    return img
 
 
 def mouse_click_left(x: int, y: int):
