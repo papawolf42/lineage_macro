@@ -32,7 +32,7 @@ if __name__ == "__main__":
     macro.set_hwnd(1903176)
     macro.move_window(0, 0)
 
-    print("\n명령어: 1=Ctrl+I, q=종료")
+    print("\n명령어: 1=클릭, 2=스크린샷, q=종료")
     while True:
         cmd = input("> ").strip()
         if cmd == "q":
@@ -41,3 +41,5 @@ if __name__ == "__main__":
             macro.focus_window()
             macro.mouse_click_left(1015, 970)
             print("(1015, 970) 클릭")
+        elif cmd == "2":
+            macro.screenshot()
