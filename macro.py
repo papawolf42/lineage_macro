@@ -1,7 +1,12 @@
+import os
 import win32api
 import win32con
 import win32gui
+import win32ui
 import time
+from ctypes import windll
+from datetime import datetime
+from PIL import Image
 
 _hwnd = None
 
@@ -46,6 +51,42 @@ def move_window(x: int, y: int):
     width = rect[2] - rect[0]
     height = rect[3] - rect[1]
     win32gui.MoveWindow(hwnd, x, y, width, height, True)
+
+
+def screenshot(filename: str = None) -> str:
+    hwnd = get_hwnd()
+    rect = win32gui.GetWindowRect(hwnd)
+    dpi = windll.user32.GetDpiForWindow(hwnd)
+    scale = dpi / 96.0
+    w = int((rect[2] - rect[0]) * scale)
+    h = int((rect[3] - rect[1]) * scale)
+
+    hwnd_dc = win32gui.GetWindowDC(hwnd)
+    mfc_dc = win32ui.CreateDCFromHandle(hwnd_dc)
+    save_dc = mfc_dc.CreateCompatibleDC()
+    bitmap = win32ui.CreateBitmap()
+    bitmap.CreateCompatibleBitmap(mfc_dc, w, h)
+    save_dc.SelectObject(bitmap)
+
+    windll.user32.PrintWindow(hwnd, save_dc.GetSafeHdc(), 3)
+
+    bmpinfo = bitmap.GetInfo()
+    bmpstr = bitmap.GetBitmapBits(True)
+    img = Image.frombuffer("RGB", (bmpinfo["bmWidth"], bmpinfo["bmHeight"]), bmpstr, "raw", "BGRX", 0, 1)
+
+    win32gui.DeleteObject(bitmap.GetHandle())
+    save_dc.DeleteDC()
+    mfc_dc.DeleteDC()
+    win32gui.ReleaseDC(hwnd, hwnd_dc)
+
+    if filename is None:
+        filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".png"
+
+    os.makedirs("image", exist_ok=True)
+    path = os.path.join("image", filename)
+    img.save(path)
+    print(f"[macro] 스크린샷 저장됨: {path}")
+    return path
 
 
 def mouse_click_left(x: int, y: int):
