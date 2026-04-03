@@ -37,8 +37,8 @@ if __name__ == "__main__":
         if cmd == "q":
             break
         elif cmd == "1":
-            macro.send_message(win32con.WM_KEYDOWN, win32con.VK_CONTROL, 0)
-            macro.send_message(win32con.WM_KEYDOWN, ord("I"), 0)
-            macro.send_message(win32con.WM_KEYUP, ord("I"), 0)
-            macro.send_message(win32con.WM_KEYUP, win32con.VK_CONTROL, 0)
+            macro.focus_window()
+            macro.key_down(win32con.VK_CONTROL)
+            macro.key_press(ord("I"))
+            macro.key_up(win32con.VK_CONTROL)
             print("Ctrl+I 전송")

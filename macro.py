@@ -20,20 +20,18 @@ def get_hwnd() -> int:
     return _hwnd
 
 
-def send_message(msg: int, wparam: int = 0, lparam: int = 0):
-    win32api.SendMessage(get_hwnd(), msg, wparam, lparam)
-
-
-def post_message(msg: int, wparam: int = 0, lparam: int = 0):
-    win32api.PostMessage(get_hwnd(), msg, wparam, lparam)
+def focus_window():
+    hwnd = get_hwnd()
+    win32gui.SetForegroundWindow(hwnd)
+    time.sleep(0.05)
 
 
 def key_down(vk: int):
-    post_message(win32con.WM_KEYDOWN, vk, 0)
+    win32api.keybd_event(vk, 0, 0, 0)
 
 
 def key_up(vk: int):
-    post_message(win32con.WM_KEYUP, vk, 0)
+    win32api.keybd_event(vk, 0, win32con.KEYEVENTF_KEYUP, 0)
 
 
 def key_press(vk: int, duration: float = 0.05):
@@ -42,15 +40,23 @@ def key_press(vk: int, duration: float = 0.05):
     key_up(vk)
 
 
+def move_window(x: int, y: int):
+    hwnd = get_hwnd()
+    rect = win32gui.GetWindowRect(hwnd)
+    width = rect[2] - rect[0]
+    height = rect[3] - rect[1]
+    win32gui.MoveWindow(hwnd, x, y, width, height, True)
+
+
 def mouse_click_left(x: int, y: int):
-    lparam = (y << 16) | (x & 0xFFFF)
-    post_message(win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, lparam)
+    win32api.SetCursorPos((x, y))
+    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, x, y, 0, 0)
     time.sleep(0.05)
-    post_message(win32con.WM_LBUTTONUP, 0, lparam)
+    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, x, y, 0, 0)
 
 
 def mouse_click_right(x: int, y: int):
-    lparam = (y << 16) | (x & 0xFFFF)
-    post_message(win32con.WM_RBUTTONDOWN, win32con.MK_RBUTTON, lparam)
+    win32api.SetCursorPos((x, y))
+    win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTDOWN, x, y, 0, 0)
     time.sleep(0.05)
-    post_message(win32con.WM_RBUTTONUP, 0, lparam)
+    win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTUP, x, y, 0, 0)
