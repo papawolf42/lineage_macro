@@ -5,7 +5,7 @@ import imageProcesser
 import ocr
 
 image = Image.open("image/screenshot.png")
-cropped = imageProcesser.crop(image, 248, 933, 200, 24)
+cropped = imageProcesser.crop(image, 248, 933, 50, 24)
 cropped.show()
 # cropped.save("image/crop.png")
 # result = ocr.ocr_image(cropped)

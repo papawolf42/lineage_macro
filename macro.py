@@ -186,7 +186,7 @@ def send_all_chars(interval: float = 1):
     focus_window()
 
     for i, ch in enumerate(all_chars()):
-        if i < 6167:
+        if i < 0:
             continue
         print("[macro] 문자 전송:", ch)
 
@@ -207,7 +207,7 @@ def send_all_chars(interval: float = 1):
         img = screenshot()
 
         # 3. 크롭
-        cropped = imageProcesser.crop(img, 248, 933, 200, 24)
+        cropped = imageProcesser.crop(img, 248, 933, 50, 24)
 
         # 4. data/{문자}.png 저장
         save_path = os.path.join("data", f"{i}.png")
