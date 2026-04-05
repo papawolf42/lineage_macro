@@ -1,14 +1,10 @@
-from PIL import Image
-from tools.imageProcesser import image_to_coord_string, crop
+import macro
+from tools.imageProcesser import crop
 
-img = Image.open("image/screenshot.png")
-# s = image_to_coord_string(img, (255, 255, 255))
-# print(s)
+macro.set_hwnd(1117856)
+macro.move_window(0, 0)
 
-def crop_show(x, y, w, h):
-    cropped = crop(img, x, y, w, h)
-    cropped.show()
+img = macro.screenshot()
+cropped = crop(img, 249, 933, 20, 24)
+cropped.save("image/cropped.png")
 
-# 이 좌표의 y축이 
-# crop_show(230, 787, 300, 24)
-crop_show(230, 787, 300, 24)

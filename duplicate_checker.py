@@ -6,16 +6,20 @@ from collections import defaultdict
 
 
 def pixels_to_string(arr):
-    mask = (arr[:,:,0] == 255) & (arr[:,:,1] == 0) & (arr[:,:,2] == 0)
+    mask = (arr[:,:,0] == 255) & (arr[:,:,1] == 255) & (arr[:,:,2] == 255)
     ys, xs = np.where(mask)
     coords = sorted(zip(xs, ys))
     return ''.join(f"{x}{y}" for x, y in coords)
 
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-PROCESSED_DIR = os.path.join(BASE, "..", "processed_data")
+PROCESSED_DIR = os.path.join(BASE, "data2")
 
-files = sorted(os.listdir(PROCESSED_DIR), key=lambda f: int(f.replace(".png", "")))
+def sort_key(f):
+    stem = f.replace(".png", "")
+    return (0, int(stem)) if stem.isascii() and stem.lstrip('-').isdigit() else (1, ord(stem[0]))
+
+files = sorted(os.listdir(PROCESSED_DIR), key=sort_key)
 
 string_map = defaultdict(list)
 

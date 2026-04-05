@@ -79,6 +79,14 @@ for fname in sorted(os.listdir(dst_dir)):
     for idx, char in enumerate(chars):
         cx0 = x0 + idx * char_w
         cx1 = cx0 + char_w
+        char_arr = np.array(img.crop((cx0, 0, cx1, img.height)))
+        white = (char_arr[:,:,0] > 200) & (char_arr[:,:,1] > 200) & (char_arr[:,:,2] > 200)
+        if white.any():
+            active_cols = np.where(white.any(axis=0))[0]
+            if active_cols[0] == 0:
+                cx0 = max(0, cx0 - 1)
+            if active_cols[-1] == char_w - 1:
+                cx1 = min(img.width, cx1 + 1)
         crop = img.crop((cx0, 0, cx1, img.height))
         crop.save(os.path.join(data4_dir, f"{char}.png"))
     total += len(chars)
