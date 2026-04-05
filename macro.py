@@ -132,6 +132,19 @@ def _backspace(n: int):
         time.sleep(0.01)
 
 
+def monitor_chat():
+    import imageProcesser
+    prev = None
+    while True:
+        img = screenshot()
+        cropped = imageProcesser.crop(img, 228, 907, 140, 25)
+        text = imageProcesser.read_text(cropped, 0, 0, (0xAF, 0xEB, 0xEB))
+        if text != prev:
+            print(text)
+            prev = text
+        time.sleep(0.5)
+
+
 def send_all_chars(interval: float = 0.2, batch_size: int = 25):
     """a-z, A-Z, 특수문자는 1글자씩 crop(10px), 한글은 batch_size씩 묶어 20px씩 개별 crop 저장."""
     import imageProcesser

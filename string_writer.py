@@ -14,6 +14,8 @@ def all_chars():
         yield chr(c)
     for ch in _SPECIAL_CHARS:
         yield ch
+    for c in range(ord('0'), ord('9') + 1):
+        yield chr(c)
     for c in range(0xAC00, 0xD7A4):
         yield chr(c)
 

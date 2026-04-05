@@ -47,4 +47,4 @@ if __name__ == "__main__":
             img = macro.screenshot()
             img.save("image/screenshot.png")
         elif cmd == "3":
-            macro.send_all_chars()
+            macro.monitor_chat()
