@@ -176,48 +176,70 @@ def _send_jamo(jamo: str):
     _press_key(ord(key), shift)
 
 
-def send_all_chars(interval: float = 1):
-    """a-z, A-Z, 한글 음절을 순서대로 입력하고, 각 문자마다 스크린샷 캡처 및 저장 후 지운다."""
+def _send_char(ch: str):
+    if ord(ch) <= 0x7F:
+        win32api.PostMessage(get_hwnd(), win32con.WM_CHAR, ord(ch), 0)
+    else:
+        cho, jung, jong = _decompose_hangul(ch)
+        _send_jamo(cho)
+        _send_jamo(jung)
+        if jong:
+            _send_jamo(jong)
+        # IME 조합 버퍼 강제 확정 (없으면 다음 자모와 합쳐짐)
+        _press_key(win32con.VK_RIGHT)
+
+
+def _backspace(n: int):
+    for _ in range(2 * n):
+        win32api.SendMessage(get_hwnd(), win32con.WM_KEYDOWN, win32con.VK_BACK, 0)
+        time.sleep(0.01)
+        win32api.SendMessage(get_hwnd(), win32con.WM_KEYUP, win32con.VK_BACK, 0)
+        time.sleep(0.01)
+
+
+def send_all_chars(interval: float = 0.2, batch_size: int = 25):
+    """a-z, A-Z, 특수문자는 1글자씩, 한글은 batch_size씩 묶어 스크린샷 캡처 및 저장 후 지운다."""
     import sys as _sys; _sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools"))
     import imageProcesser
     from convert_show import all_chars
 
-    os.makedirs("data", exist_ok=True)
+    os.makedirs("data2", exist_ok=True)
     focus_window()
 
-    for i, ch in enumerate(all_chars()):
-        if i < 0:
-            continue
-        print("[macro] 문자 전송:", ch)
+    ascii_chars   = [ch for ch in all_chars() if ord(ch) <= 0x7F]
+    hangul_chars  = [ch for ch in all_chars() if ord(ch) > 0x7F]
 
-        # 1. 입력
-        if ord(ch) <= 0x7F:
-            win32api.PostMessage(get_hwnd(), win32con.WM_CHAR, ord(ch), 0)
-        else:
-            cho, jung, jong = _decompose_hangul(ch)
-            _send_jamo(cho)
-            _send_jamo(jung)
-            if jong:
-                _send_jamo(jong)
-            # IME 조합 버퍼 강제 확정 (없으면 다음 자모와 합쳐짐)
-            _press_key(win32con.VK_RIGHT)
-        time.sleep(interval)
+    # 1단계: ASCII (a-z, A-Z, 특수문자) — 1글자씩
+    # for i, ch in enumerate(ascii_chars):
+    #     print("[macro] 문자 전송:", ch)
+    #     _send_char(ch)
+    #     time.sleep(interval)
 
-        # 2. 스크린샷
+    #     img = screenshot()
+    #     cropped = imageProcesser.crop(img, 248, 933, 40, 24)
+    #     save_path = os.path.join("data2", f"{i}.png")
+    #     cropped.save(save_path)
+    #     print(f"[macro] 저장됨: {save_path}")
+
+    #     _backspace(1)
+    #     time.sleep(1)
+
+    # 2단계: 한글 — batch_size씩
+    start_ch = '냢'
+    hangul_chars = hangul_chars[hangul_chars.index(start_ch):]
+    for batch_idx in range(0, len(hangul_chars), batch_size):
+        batch = hangul_chars[batch_idx:batch_idx + batch_size]
+
+        for ch in batch:
+            print("[macro] 문자 전송:", ch)
+            _send_char(ch)
+            time.sleep(interval)
+
         img = screenshot()
-
-        # 3. 크롭
-        cropped = imageProcesser.crop(img, 248, 933, 50, 24)
-
-        # 4. data/{문자}.png 저장
-        save_path = os.path.join("data", f"{i}.png")
+        cropped = imageProcesser.crop(img, 248, 933, 40 * len(batch), 24)
+        save_path = os.path.join("data2", f"{''.join(batch)}.png")
         cropped.save(save_path)
+        print(f"[macro] 저장됨: {save_path} ({len(batch)}글자)")
 
-        # 5. 백스페이스 5번
-        for _ in range(7):
-            win32api.SendMessage(get_hwnd(), win32con.WM_KEYDOWN, win32con.VK_BACK, 0)
-            time.sleep(0.01)
-            win32api.SendMessage(get_hwnd(), win32con.WM_KEYUP, win32con.VK_BACK, 0)
-            time.sleep(0.01)
-        # 6. 0.5초 휴식
+        _backspace(len(batch))
         time.sleep(1)

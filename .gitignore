@@ -2,6 +2,9 @@
 **/*.cpython-*.pyc
 image/
 data/
+data2/
+data3/
+data4/
 processed_data/
 tmp_add/
 tmp_add_processed/
