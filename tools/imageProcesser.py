@@ -2,6 +2,10 @@ from PIL import Image
 import numpy as np
 import json
 import os
+import re
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import ocr
 
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _CONVERTED_DATA_PATH = os.path.join(_BASE, "converted_data.json")
@@ -50,6 +54,14 @@ def readExchangeNickname(screenshot: Image.Image) -> str:
             best = text
         x -= 5
     return best
+
+
+def readAdena(image: Image.Image) -> int:
+    gray = ocr.extract_gray(image)
+    results = ocr.ocr(gray, ['en'])
+    text = ' '.join(t for _, t, _ in results)
+    digits = re.sub(r'[^0-9]', '', text)
+    return int(digits) if digits else 0
 
 
 def image_to_coord_string(image: Image.Image, color: tuple) -> str:

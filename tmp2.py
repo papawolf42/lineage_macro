@@ -1,8 +1,6 @@
-from PIL import Image
+import macro
 
-# img = Image.open("image/exchange2.png")
-img = Image.open("image/exchange_1_1.png")
-cropped = img.crop((102, 292, 102 + 140, 292 + 24))
-cropped.save("cropped.png")
-cropped.show()
-
+macro.init_lineage_windows()
+macro.arduino_mouse_click_left(248, 585)
+macro.arduino_mouse_click_left(248, 585)
+macro.arduino_mouse_click_left(248, 585)
