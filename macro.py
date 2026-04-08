@@ -420,7 +420,7 @@ def get_brightness(image: Image.Image) -> float:
 def readMp(img=None) -> int:
     if img is None:
         img = screenshot()
-    cropped = imageProcesser.crop(img, 717, 667, 100, 21)
+    cropped = imageProcesser.crop(img, 715, 667, 100, 21)
     results = ocr.ocr(cropped, ['en'])
     text = ' '.join(t for _, t, _ in results)
     print(f"[macro] MP OCR 결과: '{text}'")
