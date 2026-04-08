@@ -4,10 +4,10 @@ import json
 import os
 import re
 import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools"))
 import ocr
 
-_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_BASE = os.path.dirname(os.path.abspath(__file__))
 _CONVERTED_DATA_PATH = os.path.join(_BASE, "converted_data.json")
 
 with open(_CONVERTED_DATA_PATH, encoding="utf-8") as _f:

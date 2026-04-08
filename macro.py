@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import win32api
+import win32com
 import win32con
 import win32gui
 import win32process
@@ -14,6 +15,7 @@ from datetime import datetime
 from PIL import Image
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import hangul
 import imageProcesser
 import ocr
@@ -65,7 +67,9 @@ def arduino_mouse_click_right(x: int, y: int):
 def arduino_mouse_shift_click_left(x: int, y: int):
     win32api.SetCursorPos((x, y))
     _arduino_send(f'KD,{win32con.VK_SHIFT}')
+    time.sleep(0.05)
     _arduino_send('CL')
+    time.sleep(0.05)
     _arduino_send(f'KU,{win32con.VK_SHIFT}')
 
 
@@ -73,49 +77,136 @@ def arduino_backspace(n: int):
     _arduino_send(f'BS,{n}')
 
 
+_SHIFT_CHAR_MAP = {
+    '!': '1', '@': '2', '#': '3', '$': '4', '%': '5',
+    '^': '6', '&': '7', '*': '8', '(': '9', ')': '0',
+    '_': '-', '+': '=', '{': '[', '}': ']', '|': '\\',
+    ':': ';', '"': "'", '<': ',', '>': '.', '?': '/',
+    '~': '`',
+}
+
+def _arduino_send_jamo(jamo: str):
+    """자모 하나를 Arduino로 입력한다. 복합 자모는 분해해서 처리."""
+    if jamo in hangul.COMPOUND_JAMO:
+        for j in hangul.COMPOUND_JAMO[jamo]:
+            _arduino_send_jamo(j)
+        return
+    key, shift = hangul.JAMO_KEY_MAP[jamo]
+    vk = ord(key)
+    if shift:
+        _arduino_send(f'KD,{win32con.VK_SHIFT}')
+    _arduino_send(f'KP,{vk}')
+    if shift:
+        _arduino_send(f'KU,{win32con.VK_SHIFT}')
+
+
+def _arduino_send_hangul(ch: str):
+    """한글 한 글자를 Arduino로 입력한다."""
+    cho, jung, jong = hangul.decompose_hangul(ch)
+    _arduino_send_jamo(cho)
+    _arduino_send_jamo(jung)
+    if jong:
+        _arduino_send_jamo(jong)
+    _arduino_send(f'KP,{win32con.VK_RIGHT}')  # IME 조합 버퍼 확정
+
+
+def arduino_type_string(text: str):
+    """문자열을 Arduino HID를 통해 한 글자씩 입력한다. 한글/영문/숫자/특수문자 지원."""
+    VK_HANGUL = 0x15
+    korean_mode = True  # 현재 입력 모드 (False=영어, True=한글)
+
+    def set_mode(need_korean: bool):
+        nonlocal korean_mode
+        if korean_mode != need_korean:
+            _arduino_send(f'KP,{VK_HANGUL}')
+            korean_mode = need_korean
+
+    for ch in text:
+        is_korean = '\uAC00' <= ch <= '\uD7A3'
+
+        if ch == ' ':
+            _arduino_send(f'KP,{win32con.VK_SPACE}')
+        elif is_korean:
+            set_mode(True)
+            _arduino_send_hangul(ch)
+        elif ch.isalpha():
+            set_mode(False)
+            vk = ord(ch.upper())
+            if ch.isupper():
+                _arduino_send(f'KD,{win32con.VK_SHIFT}')
+                _arduino_send(f'KP,{vk}')
+                _arduino_send(f'KU,{win32con.VK_SHIFT}')
+            else:
+                _arduino_send(f'KP,{vk}')
+        elif ch.isdigit():
+            set_mode(False)
+            _arduino_send(f'KP,{ord(ch)}')
+        elif ch in _SHIFT_CHAR_MAP:
+            set_mode(False)
+            vk = ord(_SHIFT_CHAR_MAP[ch])
+            _arduino_send(f'KD,{win32con.VK_SHIFT}')
+            _arduino_send(f'KP,{vk}')
+            _arduino_send(f'KU,{win32con.VK_SHIFT}')
+        else:
+            set_mode(False)
+            _arduino_send(f'KP,{ord(ch)}')
+
+    if not korean_mode:
+        _arduino_send(f'KP,{VK_HANGUL}')  # 입력 후 한글 모드로 복원
+    _arduino_send(f'KP,{win32con.VK_RETURN}')
+    _arduino_send(f'KU,{win32con.VK_RETURN}')  # 엔터키는 두 번 입력해서 채팅창 확정
+
+
 # ── Turn (방향 이동) ───────────────────────────────────────────────────────────
-_TURN_CX, _TURN_CY = 648, 378   # 기준 중심 좌표
-_TURN_R = 150                    # 클릭 반경 (픽셀)
-_TURN_D = int(_TURN_R * 0.7071) # 대각선 거리 (R * cos45°)
+_TURN_XY = {
+    'north':     (648, 228),
+    'northeast': (754, 272),
+    'east':      (839, 405),
+    'southeast': (754, 484),
+    'south':     (648, 528),
+    'southwest': (542, 484),
+    'west':      (436, 407),
+    'northwest': (542, 272),
+}
 
 def turn_north():
     global current_direction
-    arduino_mouse_shift_click_left(_TURN_CX, _TURN_CY - _TURN_R)
+    arduino_mouse_shift_click_left(*_TURN_XY['north'])
     current_direction = 'north'
 
 def turn_northeast():
     global current_direction
-    arduino_mouse_shift_click_left(_TURN_CX + _TURN_D, _TURN_CY - _TURN_D)
+    arduino_mouse_shift_click_left(*_TURN_XY['northeast'])
     current_direction = 'northeast'
 
 def turn_east():
     global current_direction
-    arduino_mouse_shift_click_left(839, 405)
+    arduino_mouse_shift_click_left(*_TURN_XY['east'])
     current_direction = 'east'
 
 def turn_southeast():
     global current_direction
-    arduino_mouse_shift_click_left(_TURN_CX + _TURN_D, _TURN_CY + _TURN_D)
+    arduino_mouse_shift_click_left(*_TURN_XY['southeast'])
     current_direction = 'southeast'
 
 def turn_south():
     global current_direction
-    arduino_mouse_shift_click_left(_TURN_CX, _TURN_CY + _TURN_R)
+    arduino_mouse_shift_click_left(*_TURN_XY['south'])
     current_direction = 'south'
 
 def turn_southwest():
     global current_direction
-    arduino_mouse_shift_click_left(_TURN_CX - _TURN_D, _TURN_CY + _TURN_D)
+    arduino_mouse_shift_click_left(*_TURN_XY['southwest'])
     current_direction = 'southwest'
 
 def turn_west():
     global current_direction
-    arduino_mouse_shift_click_left(436, 407)
+    arduino_mouse_shift_click_left(*_TURN_XY['west'])
     current_direction = 'west'
 
 def turn_northwest():
     global current_direction
-    arduino_mouse_shift_click_left(_TURN_CX - _TURN_D, _TURN_CY - _TURN_D)
+    arduino_mouse_shift_click_left(*_TURN_XY['northwest'])
     current_direction = 'northwest'
 
 
@@ -130,8 +221,10 @@ available_count_2 = 0
 mp_1 = 0
 mp_2 = 0
 direction_threshold = 4
+adena_per_pickup = 150
 low_count_direction = 'southeast'
 high_count_direction = 'northwest'
+_last_type_string_time = 0
 exchange_yes_button = (869, 914)  # 교환 수락 Yes 좌표
 exchange_no_button = (917, 912)   # 교환 수락 No 좌표
 
@@ -186,18 +279,24 @@ def init_lineage_windows():
 
 def init_mouse_x_y():
     global lineage1_mouse_x_y, lineage2_mouse_x_y
-    global direction_threshold, low_count_direction, high_count_direction
+    global direction_threshold, adena_per_pickup, current_direction, low_count_direction, high_count_direction
+    global _TURN_XY
     data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "macro_data.json")
     with open(data_path, encoding="utf-8") as f:
         data = json.load(f)
     lineage1_mouse_x_y = tuple(data["lineage1_mouse_x_y"])
     lineage2_mouse_x_y = tuple(data["lineage2_mouse_x_y"])
     direction_threshold = data["direction_threshold"]
+    adena_per_pickup = data["adena_per_pickup"]
+    current_direction = data["current_direction"]
     low_count_direction = data["low_count_direction"]
     high_count_direction = data["high_count_direction"]
+    for d in ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest']:
+        _TURN_XY[d] = tuple(data[f"turn_{d}_xy"])
     print(f"[macro] lineage1_mouse_x_y={lineage1_mouse_x_y}")
     print(f"[macro] lineage2_mouse_x_y={lineage2_mouse_x_y}")
-    print(f"[macro] direction_threshold={direction_threshold}, low={low_count_direction}, high={high_count_direction}")
+    print(f"[macro] direction_threshold={direction_threshold}, current={current_direction}, low={low_count_direction}, high={high_count_direction}")
+    print(f"[macro] turn_xy={_TURN_XY}")
 
 
 
@@ -324,6 +423,7 @@ def readMp(img=None) -> int:
     cropped = imageProcesser.crop(img, 717, 667, 100, 21)
     results = ocr.ocr(cropped, ['en'])
     text = ' '.join(t for _, t, _ in results)
+    print(f"[macro] MP OCR 결과: '{text}'")
     if '/' not in text:
         return 0
     before_slash = text.split('/')[0].strip()
@@ -369,37 +469,52 @@ _DIRECTION_FUNCS = {
 def accept_exchange_and_track_adena():
     global available_count_1, available_count_2, mp_1, mp_2
 
-    # 방향 조정
-    img = screenshot(hwnd=lineage1_hwnd)
-    img2 = screenshot(hwnd=lineage2_hwnd)
-    _mp1 = readMp(img)
-    _mp2 = readMp(img2)
-    if _mp1 != 0:
-        mp_1 = _mp1
-    if _mp2 != 0:
-        mp_2 = _mp2
-    available_count_1 = int(mp_1 // 20)
-    available_count_2 = int(mp_2 // 20)
-    total_count = available_count_1 + available_count_2
-    print(f"[macro] available_count_1: {available_count_1}, available_count_2: {available_count_2}, total: {total_count}")
-    if total_count < direction_threshold:
-        if current_direction != low_count_direction:
-            force_set_foreground_window(lineage1_hwnd)
-            _DIRECTION_FUNCS[low_count_direction]()
-    else:
-        if current_direction != high_count_direction:
-            force_set_foreground_window(lineage1_hwnd)
-            _DIRECTION_FUNCS[high_count_direction]()
-        return
-
     # 닉네임이 읽힐 때까지 F7 입력
     while True:
-        _arduino_send(f'KP,{win32con.VK_F6 + 1}')  # F7 HID: 0x40
-        time.sleep(2)
+        # 방향 조정
+        img = screenshot(hwnd=lineage1_hwnd)
+        img2 = screenshot(hwnd=lineage2_hwnd)
+        _mp1 = readMp(img)
+        _mp2 = readMp(img2)
+        if _mp1 != 0:
+            mp_1 = _mp1
+        if _mp2 != 0:
+            mp_2 = _mp2
+        available_count_1 = int(mp_1 // 20)
+        available_count_2 = int(mp_2 // 20)
+        total_count = available_count_1 + available_count_2
+        print(total_count, available_count_1, available_count_2, mp_1, mp_2, direction_threshold)
+        if total_count < direction_threshold:
+            print("current_direction:", current_direction
+                  , "low_count_direction:", low_count_direction
+                  , "high_count_direction:", high_count_direction)
+            if current_direction != low_count_direction:
+                force_set_foreground_window(lineage1_hwnd)
+                _DIRECTION_FUNCS[low_count_direction]()
+                time.sleep(1)
+            return
+        else:
+            print("current_direction:", current_direction
+                  , "low_count_direction:", low_count_direction
+                  , "high_count_direction:", high_count_direction)
+            print(current_direction != high_count_direction)
+            if current_direction != high_count_direction:
+                force_set_foreground_window(lineage1_hwnd)
+                time.sleep(1)
+                _DIRECTION_FUNCS[high_count_direction]()
+                time.sleep(1)
+        global _last_type_string_time
+        if time.time() - _last_type_string_time >= 5:
+            arduino_type_string(f"\\f2 방당 {adena_per_pickup} \\f= {total_count}방 가능")
+            _last_type_string_time = time.time()
         img = screenshot()
         nickname = readExchangeNickname(img)
         if nickname:
+            greeted_nickname = nickname
+            arduino_type_string(f"{nickname}님 안녕하세요~!")
             break
+        _arduino_send(f'KP,{win32con.VK_F7}')  # F7 HID: 0x40
+        time.sleep(0.5)
 
     # 2. 최초 1번 아데나 읽기
     adena_before = readAdena()
@@ -436,19 +551,21 @@ def accept_exchange_and_track_adena():
         received = adena_after - adena_before
         print(f"[macro] 교환 완료: {adena_before} -> {adena_after} (+{received})")
 
-        pickup_count = int(received // 150)
-        if pickup_count == 3:
-            pickup_count += 1
+        pickup_count = int(received // adena_per_pickup)
         print(f"[macro] 픽업 횟수: {pickup_count}")
         for _ in range(pickup_count):
             if available_count_1 >= available_count_2:
                 available_count_1 -= 1
+                mp_1 -= 20
                 pickup_lineage1()
             else:
                 available_count_2 -= 1
+                mp_2 -= 20
                 pickup_lineage2()
             time.sleep(1)
 
         if win32gui.GetForegroundWindow() != lineage1_hwnd:
             force_set_foreground_window(lineage1_hwnd)
+        time.sleep(0.5)
+        arduino_type_string(f"{greeted_nickname}님 고맙습니다~!")
         return received

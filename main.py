@@ -2,7 +2,7 @@ import time
 import threading
 import macro
 import ocr
-from tools import imageProcesser
+import imageProcesser
 
 
 if __name__ == "__main__":
@@ -15,6 +15,7 @@ if __name__ == "__main__":
         if cmd == "q":
             break
         if cmd == "1":
+            macro.force_set_foreground_window(macro.lineage1_hwnd)
             while True:
                 macro.accept_exchange_and_track_adena()
         if cmd == "2":

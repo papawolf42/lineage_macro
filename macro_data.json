@@ -1,10 +1,22 @@
 {
-    "lineage1_mouse_x_y": [684, 388],
-    "lineage2_mouse_x_y": [1360, 407],
+    "lineage1_mouse_x_y": [684, 337],
+    "lineage2_mouse_x_y": [1359, 314],
 
-    "direction_threshold": 4,
+    "direction_threshold": 1,
+    "adena_per_pickup": 100,
 
-    "low_count_direction": "southeast",
-    "high_count_direction": "northwest",
+    "current_direction": "northwest",
+    "low_count_direction": "southwest",
+    "high_count_direction": "northeast",
+
+    "turn_north_xy":     [654, 292],
+    "turn_northeast_xy": [816, 302],
+    "turn_east_xy":      [770, 394],
+    "turn_southeast_xy": [810, 544],
+    "turn_south_xy":     [654, 584],
+    "turn_southwest_xy": [376, 528],
+    "turn_west_xy":      [336, 399],
+    "turn_northwest_xy": [429, 234],
+
     "_comment_directions": "north, northeast, east, southeast, south, southwest, west, northwest"
 }
