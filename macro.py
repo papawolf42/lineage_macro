@@ -467,10 +467,11 @@ _DIRECTION_FUNCS = {
 
 
 def accept_exchange_and_track_adena():
+    import main
     global available_count_1, available_count_2, mp_1, mp_2
 
     # 닉네임이 읽힐 때까지 F7 입력
-    while True:
+    while main.running:
         # 방향 조정
         img = screenshot(hwnd=lineage1_hwnd)
         img2 = screenshot(hwnd=lineage2_hwnd)
@@ -522,7 +523,7 @@ def accept_exchange_and_track_adena():
     # 3. 밝기 모니터링
     prev_brightness = None
     brightness_changed = False
-    while True:
+    while main.running:
         img = screenshot()
         nickname = readExchangeNickname(img)
         if not nickname:
