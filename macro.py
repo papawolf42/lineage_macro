@@ -306,35 +306,57 @@ def init_lineage_windows(role: str):
     """
     global lineage1_hwnd
 
-    # "Lineage Classic" 창 수집 (넘버링 불필요하므로 정렬 없음)
-    candidates = []
+    # 모든 가시 창 수집
+    all_windows: dict[str, int] = {}
     def callback(hwnd, _):
-        if win32gui.IsWindowVisible(hwnd) and win32gui.GetWindowText(hwnd).startswith("Lineage Classic"):
-            candidates.append(hwnd)
+        if win32gui.IsWindowVisible(hwnd):
+            all_windows[win32gui.GetWindowText(hwnd)] = hwnd
     win32gui.EnumWindows(callback, None)
-    if not candidates:
-        raise RuntimeError("'Lineage Classic'으로 시작하는 윈도우를 찾을 수 없습니다.")
 
     if role == "server":
-        new_title = "server"
+        # 이미 "server" 타이틀이 있으면 그대로 채택
+        if "server" in all_windows:
+            lineage1_hwnd = all_windows["server"]
+            new_title = "server"
+        else:
+            # 없으면 "Lineage Classic" 창을 찾아 이름 변경
+            candidates = [hwnd for title, hwnd in all_windows.items() if title.startswith("Lineage Classic")]
+            if not candidates:
+                raise RuntimeError("'Lineage Classic'으로 시작하는 윈도우를 찾을 수 없습니다.")
+            lineage1_hwnd = candidates[0]
+            win32gui.SetWindowText(lineage1_hwnd, "server")
+            new_title = "server"
     else:
-        # 이미 존재하는 clientN 타이틀에서 사용 중인 번호 수집
-        used = set()
-        def count_callback(hwnd, _):
-            t = win32gui.GetWindowText(hwnd)
-            if t.startswith("client"):
-                suffix = t[len("client"):]
-                if suffix.isdigit():
-                    used.add(int(suffix))
-        win32gui.EnumWindows(count_callback, None)
-        n = 1
-        while n in used:
-            n += 1
-        new_title = f"client{n}"
+        candidates = [hwnd for title, hwnd in all_windows.items() if title.startswith("Lineage Classic")]
 
-    lineage1_hwnd = candidates[0]
-    win32gui.SetWindowText(lineage1_hwnd, new_title)
-    print(f"[macro] lineage1_hwnd={lineage1_hwnd} → 타이틀 '{new_title}'")
+        if "server" in all_windows:
+            # server가 있는 경우: client가 있으면 그 핸들 사용, 없으면 Lineage Classic → "client"
+            if "client" in all_windows:
+                lineage1_hwnd = all_windows["client"]
+                new_title = "client"
+            else:
+                if not candidates:
+                    raise RuntimeError("'Lineage Classic'으로 시작하는 윈도우를 찾을 수 없습니다.")
+                lineage1_hwnd = candidates[0]
+                win32gui.SetWindowText(lineage1_hwnd, "client")
+                new_title = "client"
+        else:
+            # server가 없는 경우: Lineage Classic을 찾아 client 또는 client numbering
+            if not candidates:
+                raise RuntimeError("'Lineage Classic'으로 시작하는 윈도우를 찾을 수 없습니다.")
+            if "client" not in all_windows:
+                new_title = "client"
+            else:
+                n = 2
+                while f"client{n}" in all_windows:
+                    n += 1
+                new_title = f"client{n}"
+            lineage1_hwnd = candidates[0]
+            win32gui.SetWindowText(lineage1_hwnd, new_title)
+
+    rect = win32gui.GetWindowRect(lineage1_hwnd)
+    win32gui.MoveWindow(lineage1_hwnd, 0, 0, rect[2] - rect[0], rect[3] - rect[1], True)
+    print(f"[macro] lineage1_hwnd={lineage1_hwnd} → 타이틀 '{new_title}', 위치 (0, 0)")
 
 
 def init_mouse_x_y():

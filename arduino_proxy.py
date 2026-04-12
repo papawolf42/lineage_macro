@@ -62,10 +62,21 @@ srv.listen(10)
 print(f"[proxy] 대기 중: {PROXY_HOST}:{PROXY_PORT}")
 print("종료하려면 Ctrl+C")
 
+
+def _accept_loop():
+    while True:
+        try:
+            conn, addr = srv.accept()
+        except OSError:
+            break
+        threading.Thread(target=_handle_client, args=(conn, addr), daemon=True).start()
+
+
+threading.Thread(target=_accept_loop, daemon=True).start()
+
 try:
     while True:
-        conn, addr = srv.accept()
-        threading.Thread(target=_handle_client, args=(conn, addr), daemon=True).start()
+        threading.Event().wait(1)
 except KeyboardInterrupt:
     print("[proxy] 종료")
 finally:
