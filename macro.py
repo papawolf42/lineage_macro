@@ -527,11 +527,16 @@ def readMp(img=None) -> int:
 
 def readAdena() -> int:
     force_set_foreground_window(lineage1_hwnd)
-    win32api.SetCursorPos((1017, 82))
-    time.sleep(1)
-    img = screenshot()
-    cropped = imageProcesser.crop(img, 1043, 105, 177, 21)
-    return imageProcesser.readAdena(cropped)
+    while True:
+        key_press(win32con.VK_F9)
+        img = screenshot()
+        cropped = imageProcesser.crop(img, 228 + 60 + 5 + 5, 883, 500, 21)
+        text = imageProcesser.read_text(cropped, 0, 0, (0xFF, 0xF1, 0xB5))
+        if '(' in text and ')' in text:
+            inner = text[text.index('(') + 1:text.index(')')]
+            digits = inner.replace(' ', '')
+            return int(digits) if digits else 0
+        time.sleep(0.5)
 
 
 def readExchangeNickname(img=None):

@@ -42,6 +42,13 @@ def read_text(image: Image.Image, x: int, y: int, color: tuple) -> str:
     return ''.join(result)
 
 
+def read_line(image: Image.Image, x: int, y: int, color: tuple) -> str:
+    text = read_text(image, x, y, color)
+    if not text:
+        text = read_text(image, x + 10, y, color)
+    return text
+
+
 def readExchangeNickname(screenshot: Image.Image) -> str:
     x = 107
     y, w, h = 292, 140, 24

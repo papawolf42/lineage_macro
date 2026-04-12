@@ -157,11 +157,11 @@ def exchange_loop():
                     macro._DIRECTION_FUNCS[macro.high_count_direction]()
                     time.sleep(1)
 
-            if time.time() - _last_type_string_time >= 5:
-                macro.arduino_type_string(
-                    f"\\f2 방당 {macro.adena_per_pickup} \\f= {total_count}방 가능"
-                )
-                _last_type_string_time = time.time()
+            # if time.time() - _last_type_string_time >= 5:
+            #     macro.arduino_type_string(
+            #         f"\\f2 방당 {macro.adena_per_pickup} \\f= {total_count}방 가능"
+            #     )
+            #     _last_type_string_time = time.time()
 
             nickname = macro.readExchangeNickname(macro.screenshot())
             if nickname:
