@@ -296,7 +296,12 @@ def exchange_loop():
             print(f"[server] 교환 완료: {adena_before} -> {adena_after} (+{received})")
 
             pickup_count = int(received // macro.adena_per_pickup)
-            total_available = sum(e["available"] for e in clients_snapshot)
+
+            # 핑 스레드의 concurrent 업데이트와 격리하기 위해 available을 별도 dict로 복사
+            # clients_snapshot은 shallow copy라 핑 스레드가 동일 dict를 수정하므로,
+            # pickup loop 전용 카운터를 따로 유지한다.
+            pickup_avail: dict[int, int] = {id(c): c["available"] for c in clients_snapshot}
+            total_available = sum(pickup_avail.values())
             remaining = min(pickup_count, total_available)
 
             # ── 픽업 분배 ───────────────────────────────────────────────────
@@ -307,13 +312,13 @@ def exchange_loop():
             last_idx_time: dict = {}
 
             while remaining > 0:
-                with_avail = [c for c in clients_snapshot if c["available"] > 0]
+                with_avail = [c for c in clients_snapshot if pickup_avail[id(c)] > 0]
                 if not with_avail:
                     break
 
-                max_avail = max(c["available"] for c in with_avail)
+                max_avail = max(pickup_avail[id(c)] for c in with_avail)
                 candidates = sorted(
-                    [c for c in with_avail if c["available"] == max_avail],
+                    [c for c in with_avail if pickup_avail[id(c)] == max_avail],
                     key=lambda c: c["idx"], reverse=True
                 )
 
@@ -325,8 +330,9 @@ def exchange_loop():
                     if elapsed < SAME_UNIT_DELAY:
                         time.sleep(SAME_UNIT_DELAY - elapsed)
 
+                    avail = pickup_avail[id(c)]
                     label = "server" if "conn" not in c else f"client{c['addr']}"
-                    print(f"[server] pickup → {label} (avail={c['available']}, remaining={remaining})")
+                    print(f"[server] pickup → {label} (avail={avail}, remaining={remaining})")
 
                     if "conn" not in c:  # 서버 로컬 실행
                         macro.pickup_lineage1()
@@ -337,7 +343,7 @@ def exchange_loop():
                     last_idx_time[c["idx"]] = time.time()
                     if ok:
                         remaining -= 1
-                        c["available"] -= 1
+                        pickup_avail[id(c)] -= 1
                         sent_any = True
 
                 if not sent_any:
