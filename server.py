@@ -20,6 +20,7 @@ HOST = '0.0.0.0'
 PORT = 9999
 ACK_TIMEOUT = 10      # 픽업 ack 대기 최대 시간(초)
 SAME_UNIT_DELAY = 2   # 같은 PC 내 클라이언트 간 픽업 딜레이(초)
+POTION_COOLDOWN = 600 # 포션 쿨타임(초)
 
 # ── 클라이언트 관리 ───────────────────────────────────────────────────────────
 # client: {"conn": socket, "addr": tuple, "lock": Lock, "mp": int, "idx": int}
@@ -82,7 +83,7 @@ def _handle_client(conn: socket.socket, addr: tuple):
         conn.close()
         return
 
-    client = {"conn": conn, "addr": addr, "lock": threading.Lock(), "mp": 0, "idx": idx, "available": 0}
+    client = {"conn": conn, "addr": addr, "lock": threading.Lock(), "mp": 0, "idx": idx, "available": 0, "potion_last_used": 0}
     unit_str = "서버PC" if idx == 0 else f"유닛{idx}"
     print(f"[server] 클라이언트 등록: {addr}  (idx={idx}, {unit_str})")
     with _clients_lock:
@@ -102,6 +103,17 @@ def _handle_client(conn: socket.socket, addr: tuple):
                     client["mp"] = resp.get("mp", 0)
                     client["available"] = int(client["mp"] // 20)
                     print(f"[server] client {addr} MP: {client['mp']}  available: {client['available']}")
+                    if client["available"] == 0:
+                        now = time.time()
+                        if now - client["potion_last_used"] >= POTION_COOLDOWN:
+                            print(f"[server] 포션 전송 → {addr}")
+                            if _send_json(conn, {"cmd": "potion"}):
+                                conn.settimeout(ACK_TIMEOUT)
+                                ack = _recv_json(conn)
+                                conn.settimeout(None)
+                                if ack and ack.get("status") == "ok":
+                                    client["potion_last_used"] = now
+                                    print(f"[server] 포션 완료 ack 수신 from {addr}")
     finally:
         _remove_client(client)
 
@@ -179,6 +191,12 @@ def exchange_loop():
                     if e["idx"] == -1:
                         e["mp"] = macro.mp_1
                         e["available"] = int(macro.mp_1 // 20)
+                        if e["available"] == 0:
+                            now = time.time()
+                            if now - e["potion_last_used"] >= POTION_COOLDOWN:
+                                print("[server] 서버 포션 사용")
+                                macro.use_potion()
+                                e["potion_last_used"] = now
                         break
                 clients_snapshot = list(_clients)
 
@@ -339,7 +357,7 @@ if __name__ == "__main__":
 
     # 서버 자신을 idx=-1 로 _clients에 등록 (conn/addr/lock 없음)
     with _clients_lock:
-        _clients.append({"idx": -1, "mp": 0, "available": 0})
+        _clients.append({"idx": -1, "mp": 0, "available": 0, "potion_last_used": 0})
 
     print("\n명령어: q=종료, 1=exchange 시작, 2=exchange 중지")
     exchange_thread = None
