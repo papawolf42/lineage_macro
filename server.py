@@ -170,7 +170,7 @@ def exchange_loop():
         # 이전 stage가 READ_ADENA 이상이었을 경우 WAIT_NICKNAME 복귀 시 ESC
         if stage != prev_stage:
             if stage == WAIT_NICKNAME and prev_stage is not None and prev_stage >= READ_ADENA:
-                macro.key_press(win32con.VK_ESCAPE)
+                macro.key_press(win32con.VK_TAB)
                 time.sleep(0.3)
             prev_stage = stage
 
