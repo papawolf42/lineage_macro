@@ -29,9 +29,6 @@ POTION_COOLDOWN = 600 # 포션 쿨타임(초)
 _clients: list[dict] = []
 _clients_lock = threading.Lock()
 
-def _group_key(idx: int) -> int:
-    """같은 idx는 같은 PC 그룹."""
-    return idx
 
 running = True          # exchange 루프 제어 (cmd 1=시작, 2=중지)
 _server_running = True  # accept 루프 제어 (q 입력 시에만 False)
@@ -303,8 +300,8 @@ def exchange_loop():
             remaining = min(pickup_count, total_available)
 
             # ── 픽업 분배 ───────────────────────────────────────────────────
-            # 매 라운드: 그룹별 available 최고 대표 선출 → idx 내림차순 전송
-            # 같은 그룹(-1/0)은 SAME_UNIT_DELAY 이내 재전송 금지
+            # 매 라운드: idx별 available 최고 대표 선출 → idx 내림차순 전송
+            # 같은 idx(같은 PC)는 SAME_UNIT_DELAY 이내 재전송 금지
             last_group_time: dict = {}
 
             while remaining > 0:
@@ -313,7 +310,7 @@ def exchange_loop():
                 for c in clients_snapshot:
                     if c["available"] <= 0:
                         continue
-                    gk = _group_key(c["idx"])
+                    gk = c["idx"]
                     if gk not in groups or c["available"] > groups[gk]["available"]:
                         groups[gk] = c
 
@@ -327,7 +324,7 @@ def exchange_loop():
                 for c in ordered:
                     if remaining <= 0:
                         break
-                    gk = _group_key(c["idx"])
+                    gk = c["idx"]
                     elapsed = time.time() - last_group_time.get(gk, 0)
                     if elapsed < SAME_UNIT_DELAY:
                         time.sleep(SAME_UNIT_DELAY - elapsed)
