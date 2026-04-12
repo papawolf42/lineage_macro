@@ -255,25 +255,44 @@ def get_hwnd() -> int:
     return lineage1_hwnd
 
 
-def init_lineage_windows():
-    global lineage1_hwnd, lineage2_hwnd
-    result = []
+def init_lineage_windows(role: str):
+    """
+    role: "server" 또는 "client"
+    "Lineage Classic" 으로 시작하는 윈도우를 하나 찾아 lineage1_hwnd에 설정한다.
+    - server: 타이틀을 "server"로 변경
+    - client: 이미 사용 중인 client1, client2... 를 확인해 다음 번호로 타이틀 변경
+    """
+    global lineage1_hwnd
+
+    # "Lineage Classic" 창 수집 (넘버링 불필요하므로 정렬 없음)
+    candidates = []
     def callback(hwnd, _):
         if win32gui.IsWindowVisible(hwnd) and win32gui.GetWindowText(hwnd).startswith("Lineage Classic"):
-            result.append(hwnd)
+            candidates.append(hwnd)
     win32gui.EnumWindows(callback, None)
-    if len(result) < 2:
-        raise RuntimeError(f"'Lineage Classic'으로 시작하는 윈도우가 2개 필요하지만 {len(result)}개만 찾았습니다.")
-    result.sort(key=lambda h: win32gui.GetWindowText(h))
-    lineage1_hwnd = result[0]
-    lineage2_hwnd = result[1]
-    for hwnd, (x, y) in [(lineage1_hwnd, (0, 0)), (lineage2_hwnd, (637, 0))]:
-        rect = win32gui.GetWindowRect(hwnd)
-        w = rect[2] - rect[0]
-        h = rect[3] - rect[1]
-        win32gui.MoveWindow(hwnd, x, y, w, h, True)
-    print(f"[macro] lineage1_hwnd={lineage1_hwnd} ({win32gui.GetWindowText(lineage1_hwnd)})")
-    print(f"[macro] lineage2_hwnd={lineage2_hwnd} ({win32gui.GetWindowText(lineage2_hwnd)})")
+    if not candidates:
+        raise RuntimeError("'Lineage Classic'으로 시작하는 윈도우를 찾을 수 없습니다.")
+
+    if role == "server":
+        new_title = "server"
+    else:
+        # 이미 존재하는 clientN 타이틀에서 사용 중인 번호 수집
+        used = set()
+        def count_callback(hwnd, _):
+            t = win32gui.GetWindowText(hwnd)
+            if t.startswith("client"):
+                suffix = t[len("client"):]
+                if suffix.isdigit():
+                    used.add(int(suffix))
+        win32gui.EnumWindows(count_callback, None)
+        n = 1
+        while n in used:
+            n += 1
+        new_title = f"client{n}"
+
+    lineage1_hwnd = candidates[0]
+    win32gui.SetWindowText(lineage1_hwnd, new_title)
+    print(f"[macro] lineage1_hwnd={lineage1_hwnd} → 타이틀 '{new_title}'")
 
 
 def init_mouse_x_y():
