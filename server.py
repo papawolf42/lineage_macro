@@ -237,6 +237,7 @@ def exchange_loop():
                 stage = WAIT_NICKNAME
                 continue
             adena_before = macro.readAdena()
+            macro._arduino_send(f'KP,{win32con.VK_F7}')
             stage = MONITOR_BRIGHTNESS
 
         # ── Stage 3: 슬롯 밝기 감시 → 변화 시 교환 수락 ────────────────────
@@ -272,7 +273,6 @@ def exchange_loop():
                 prev_brightness = None
                 brightness_changed = False
                 continue
-            time.sleep(0.5)
             adena_after = macro.readAdena()
             print(f"[server] 아데나 변화 감지: {adena_before} → {adena_after}")
             received = adena_after - adena_before
