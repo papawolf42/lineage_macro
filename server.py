@@ -155,9 +155,18 @@ def exchange_loop():
     prev_brightness = None
     brightness_changed = False
     _last_type_string_time = 0
+    _last_status_print_time = 0
     clients_snapshot = []
+    prev_stage = None
 
     while running:
+        # 이전 stage가 READ_ADENA 이상이었을 경우 WAIT_NICKNAME 복귀 시 ESC
+        if stage != prev_stage:
+            if stage == WAIT_NICKNAME and prev_stage is not None and prev_stage >= READ_ADENA:
+                macro.key_press(win32con.VK_ESCAPE)
+                time.sleep(0.3)
+            prev_stage = stage
+
         # ── Stage 1: MP 읽기 / 방향 조정 / 광고 / 닉네임 대기 ──────────────
         if stage == WAIT_NICKNAME:
             img = macro.screenshot(hwnd=macro.lineage1_hwnd)
@@ -174,10 +183,11 @@ def exchange_loop():
                 clients_snapshot = list(_clients)
 
             total_count = sum(e["available"] for e in clients_snapshot)
-            print(f"total={total_count}  threshold={macro.direction_threshold}")
-            for e in clients_snapshot:
-                label = "server" if e["idx"] == -1 else f"client {e['addr']}"
-                print(f"  {label}: {e['available']}회({e['mp']}MP)")
+            if time.time() - _last_status_print_time >= 3:
+                for e in clients_snapshot:
+                    print(f"idx({e['idx']}): MP: {e['mp']}, 잔여: {e['available']}")
+                print(f"총 {total_count}")
+                _last_status_print_time = time.time()
 
             if total_count < macro.direction_threshold:
                 if macro.current_direction != macro.low_count_direction:
@@ -211,6 +221,9 @@ def exchange_loop():
 
         # ── Stage 2: 교환 전 아데나 1회 측정 ────────────────────────────────
         elif stage == READ_ADENA:
+            if not macro.readExchangeNickname(img):
+                stage = WAIT_NICKNAME
+                continue
             adena_before = macro.readAdena()
             stage = MONITOR_BRIGHTNESS
 
@@ -234,7 +247,7 @@ def exchange_loop():
                 macro.key_press(ord('Y'))
                 time.sleep(0.1)
                 macro._arduino_send(f'KP,{win32con.VK_RETURN}')
-
+                time.sleep(0.3)
             prev_brightness = brightness
             time.sleep(0.5)
 
@@ -247,7 +260,6 @@ def exchange_loop():
                 prev_brightness = None
                 brightness_changed = False
                 continue
-
             adena_after = macro.readAdena()
             received = adena_after - adena_before
             print(f"[server] 교환 완료: {adena_before} -> {adena_after} (+{received})")
@@ -255,7 +267,7 @@ def exchange_loop():
             pickup_count = int(received // macro.adena_per_pickup)
             print(f"[server] 픽업 횟수: {pickup_count}")
 
-            remaining = pickup_count
+            remaining = min(pickup_count, macro.direction_threshold)
             # ── 픽업 분배 ───────────────────────────────────────────────────
             # 매 라운드: 그룹별 available 최고 대표 선출 → idx 내림차순 전송
             # 같은 그룹(-1/0)은 SAME_UNIT_DELAY 이내 재전송 금지
@@ -288,7 +300,7 @@ def exchange_loop():
                     print(f"[server] pickup → {label} (remaining={remaining})")
 
                     if c["idx"] == -1:
-                        macro.pickup()
+                        macro.pickup_lineage1()
                         ok = True
                     else:
                         ok = _send_pickup(c)

@@ -512,10 +512,9 @@ def get_brightness(image: Image.Image) -> float:
 def readMp(img=None) -> int:
     if img is None:
         img = screenshot()
-    for dx in (0, 5, 10):
+    for dx in (10, 5, 0):
         cropped = imageProcesser.crop(img, 976 + dx, 96, 100, 21)
         text = imageProcesser.read_text(cropped, 0, 0, (0xCC, 0xE3, 0xFF))
-        print(text)
         parts = text.split('/')
         digits = ''.join(c for c in parts[0] if c.isdigit())
         if digits:
