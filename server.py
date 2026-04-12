@@ -30,8 +30,8 @@ _clients: list[dict] = []
 _clients_lock = threading.Lock()
 
 def _group_key(idx: int) -> int:
-    """같은 idx는 같은 PC 그룹. 서버(-1)는 idx=0과 동일 그룹으로 정규화"""
-    return 0 if idx == -1 else idx
+    """같은 idx는 같은 PC 그룹."""
+    return idx
 
 running = True          # exchange 루프 제어 (cmd 1=시작, 2=중지)
 _server_running = True  # accept 루프 제어 (q 입력 시에만 False)
@@ -188,7 +188,7 @@ def exchange_loop():
 
             with _clients_lock:
                 for e in _clients:
-                    if e["idx"] == -1:
+                    if "conn" not in e:  # 서버 본인 엔트리
                         e["mp"] = macro.mp_1
                         e["available"] = int(macro.mp_1 // 20)
                         if e["available"] == 0:
@@ -199,6 +199,22 @@ def exchange_loop():
                                 e["potion_last_used"] = now
                         break
                 clients_snapshot = list(_clients)
+
+            # 클라이언트 포션 체크 (_clients_lock 밖에서 client["lock"] 획득)
+            for e in clients_snapshot:
+                if "conn" not in e or e["available"] > 0:
+                    continue
+                now = time.time()
+                if now - e["potion_last_used"] >= POTION_COOLDOWN:
+                    print(f"[server] 포션 전송 → {e['addr']}")
+                    with e["lock"]:
+                        if _send_json(e["conn"], {"cmd": "potion"}):
+                            e["conn"].settimeout(ACK_TIMEOUT)
+                            ack = _recv_json(e["conn"])
+                            e["conn"].settimeout(None)
+                            if ack and ack.get("status") == "ok":
+                                e["potion_last_used"] = now
+                                print(f"[server] 포션 완료 ack from {e['addr']}")
 
             total_count = sum(e["available"] for e in clients_snapshot)
             if time.time() - _last_status_print_time >= 3:
@@ -292,9 +308,11 @@ def exchange_loop():
             last_group_time: dict = {}
 
             while remaining > 0:
-                # 그룹별 available 최고 클라이언트 선출
+                # 그룹별 available 최고 클라이언트 선출 (available=0 제외)
                 groups: dict = {}
                 for c in clients_snapshot:
+                    if c["available"] <= 0:
+                        continue
                     gk = _group_key(c["idx"])
                     if gk not in groups or c["available"] > groups[gk]["available"]:
                         groups[gk] = c
@@ -314,10 +332,10 @@ def exchange_loop():
                     if elapsed < SAME_UNIT_DELAY:
                         time.sleep(SAME_UNIT_DELAY - elapsed)
 
-                    label = "server" if c["idx"] == -1 else f"client{c['addr']}"
+                    label = "server" if "conn" not in c else f"client{c['addr']}"
                     print(f"[server] pickup → {label} (remaining={remaining})")
 
-                    if c["idx"] == -1:
+                    if "conn" not in c:  # 서버 로컬 실행
                         macro.pickup_lineage1()
                         ok = True
                     else:
@@ -326,6 +344,7 @@ def exchange_loop():
                     last_group_time[gk] = time.time()
                     if ok:
                         remaining -= 1
+                        c["available"] -= 1
                         sent_any = True
 
                 if not sent_any:
@@ -355,9 +374,9 @@ if __name__ == "__main__":
 
     threading.Thread(target=_accept_loop, args=(server_sock,), daemon=True).start()
 
-    # 서버 자신을 idx=-1 로 _clients에 등록 (conn/addr/lock 없음)
+    # 서버 자신을 idx=0 으로 _clients에 등록 (conn/addr/lock 없음)
     with _clients_lock:
-        _clients.append({"idx": -1, "mp": 0, "available": 0, "potion_last_used": 0})
+        _clients.append({"idx": 0, "mp": 0, "available": 0, "potion_last_used": 0})
 
     print("\n명령어: q=종료, 1=exchange 시작, 2=exchange 중지")
     exchange_thread = None
