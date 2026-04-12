@@ -62,6 +62,7 @@ def _remove_client(client: dict):
         client["conn"].close()
     except OSError:
         pass
+    print(f"[server] 클라이언트 제거됨: {client['addr']}")
 
 
 def _handle_client(conn: socket.socket, addr: tuple):
@@ -70,10 +71,12 @@ def _handle_client(conn: socket.socket, addr: tuple):
     reg = _recv_json(conn)
     conn.settimeout(None)
     if reg is None or reg.get("cmd") != "register":
+        print(f"[server] 등록 실패 (잘못된 메시지): {addr}")
         conn.close()
         return
     idx = reg.get("idx")
     if not isinstance(idx, int):
+        print(f"[server] 등록 실패 (idx 없음): {addr}")
         conn.close()
         return
 
@@ -94,15 +97,18 @@ def _handle_client(conn: socket.socket, addr: tuple):
                 if resp.get("status") == "pong":
                     client["mp"] = resp.get("mp", 0)
                     client["available"] = int(client["mp"] // 20)
+                    # print(f"[server] client {addr} MP: {client['mp']}  available: {client['available']}")
                     if client["available"] == 0:
                         now = time.time()
                         if now - client["potion_last_used"] >= POTION_COOLDOWN:
+                            print(f"[server] 포션 전송 → {addr}")
                             if _send_json(conn, {"cmd": "potion"}):
                                 conn.settimeout(ACK_TIMEOUT)
                                 ack = _recv_json(conn)
                                 conn.settimeout(None)
                                 if ack and ack.get("status") == "ok":
                                     client["potion_last_used"] = now
+                                    print(f"[server] 포션 완료 ack 수신 from {addr}")
     finally:
         _remove_client(client)
 
@@ -137,8 +143,10 @@ def _send_pickup(client: dict) -> bool:
             return False
 
         if resp.get("status") == "ok":
+            print(f"[server] 픽업 완료 ack 수신 from {addr}")
             return True
 
+        print(f"[server] 예상치 못한 응답: {resp}")
         return False
 
 
@@ -154,6 +162,7 @@ def exchange_loop():
     prev_brightness = None
     brightness_changed = False
     _last_type_string_time = 0
+    _last_status_print_time = 0
     clients_snapshot = []
     prev_stage = None
 
@@ -185,21 +194,12 @@ def exchange_loop():
                         break
                 clients_snapshot = list(_clients)
 
-            # 클라이언트 포션 체크 (_clients_lock 밖에서 client["lock"] 획득)
-            for e in clients_snapshot:
-                if "conn" not in e or e["available"] > 0:
-                    continue
-                now = time.time()
-                if now - e["potion_last_used"] >= POTION_COOLDOWN:
-                    with e["lock"]:
-                        if _send_json(e["conn"], {"cmd": "potion"}):
-                            e["conn"].settimeout(ACK_TIMEOUT)
-                            ack = _recv_json(e["conn"])
-                            e["conn"].settimeout(None)
-                            if ack and ack.get("status") == "ok":
-                                e["potion_last_used"] = now
-
             total_count = sum(e["available"] for e in clients_snapshot)
+            if time.time() - _last_status_print_time >= 3:
+                for e in clients_snapshot:
+                    print(f"idx({e['idx']}): MP: {e['mp']}, 잔여: {e['available']}")
+                print(f"총 {total_count}")
+                _last_status_print_time = time.time()
 
             if total_count < macro.direction_threshold:
                 if macro.current_direction != macro.low_count_direction:
@@ -248,6 +248,7 @@ def exchange_loop():
 
             slot = imageProcesser.crop(img, 241, 360, 30, 30)
             brightness = macro.get_brightness(slot)
+            print(f"[server] 슬롯 밝기: {brightness:.2f}")
 
             if prev_brightness is not None and brightness != prev_brightness:
                 brightness_changed = True
@@ -282,16 +283,7 @@ def exchange_loop():
             pickup_avail: dict[int, int] = {id(c): c["available"] for c in clients_snapshot}
             total_available = sum(pickup_avail.values())
             remaining = min(pickup_count, total_available)
-
-            avail_detail = "  ".join(
-                f"idx{c['idx']}={'srv' if 'conn' not in c else c['addr']}:{pickup_avail[id(c)]}"
-                for c in clients_snapshot
-            )
-            print(
-                f"[pickup] 교환 완료  아데나: {adena_before:,} → {adena_after:,} (+{received:,})\n"
-                f"[pickup] 요청={pickup_count}방  가용={total_available}방  실행={remaining}방\n"
-                f"[pickup] 클라이언트별 가용 >> {avail_detail}"
-            )
+            print(f"remaining pickup count: {remaining} (received: {received}, available: {total_available})")
 
             # ── 픽업 분배 ───────────────────────────────────────────────────
             # 매 라운드: 전체 중 available 최댓값 탐색
@@ -299,8 +291,6 @@ def exchange_loop():
             #   → 혼자면 해당 client만 실행
             # 같은 idx는 SAME_UNIT_DELAY 이내 재전송 금지
             last_idx_time: dict = {}
-            completed = 0
-            seq = 0
 
             while remaining > 0:
                 with_avail = [c for c in clients_snapshot if pickup_avail[id(c)] > 0]
@@ -312,7 +302,6 @@ def exchange_loop():
                     [c for c in with_avail if pickup_avail[id(c)] == max_avail],
                     key=lambda c: c["idx"], reverse=True
                 )
-                print(f"candidates: {candidates}")
 
                 sent_any = False
                 for c in candidates:
@@ -322,11 +311,6 @@ def exchange_loop():
                     if elapsed < SAME_UNIT_DELAY:
                         time.sleep(SAME_UNIT_DELAY - elapsed)
 
-                    seq += 1
-                    avail = pickup_avail[id(c)]
-                    label = "서버" if "conn" not in c else f"클라이언트{c['addr']}"
-                    print(f"[pickup] #{seq:02d}  {label}  (idx={c['idx']}, avail={avail}, remaining={remaining})")
-
                     if "conn" not in c:  # 서버 로컬 실행
                         macro.pickup_lineage1()
                         ok = True
@@ -334,18 +318,14 @@ def exchange_loop():
                         ok = _send_pickup(c)
 
                     last_idx_time[c["idx"]] = time.time()
-                    result_str = "성공" if ok else "실패"
                     if ok:
                         remaining -= 1
                         pickup_avail[id(c)] -= 1
-                        completed += 1
                         sent_any = True
-                    print(f"[pickup] #{seq:02d}  {label}  → {result_str}  (completed={completed}, remaining={remaining})")
+                        print(f"[pickup] {c['idx']}  remaining={remaining}")
 
                 if not sent_any:
                     break
-
-            print(f"[pickup] 분배 완료: {completed}/{pickup_count}방  (요청={pickup_count}, 가용={total_available})")
 
             if win32gui.GetForegroundWindow() != macro.lineage1_hwnd:
                 macro.force_set_foreground_window(macro.lineage1_hwnd)
