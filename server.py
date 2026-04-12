@@ -273,8 +273,8 @@ def exchange_loop():
                 brightness_changed = False
                 continue
             adena_after = macro.readAdena()
+            print(f"[server] 아데나 변화 감지: {adena_before} → {adena_after}")
             received = adena_after - adena_before
-
             pickup_count = int(received // macro.adena_per_pickup)
 
             # 핑 스레드의 concurrent 업데이트와 격리하기 위해 available을 별도 dict로 복사
