@@ -1,23 +1,8 @@
-import threading
 import macro
 import ocr
 import imageProcesser
-from http.server import BaseHTTPRequestHandler, HTTPServer
 
 running = True
-
-def _serve():
-    class H(BaseHTTPRequestHandler):
-        def do_GET(self):
-            global running
-            if self.path == "/end":
-                running = False
-            self.send_response(200)
-            self.end_headers()
-        log_message = lambda *a: None
-    HTTPServer(("", 8765), H).serve_forever()
-
-threading.Thread(target=_serve, daemon=True).start()
 
 if __name__ == "__main__":
     macro.init_lineage_windows()
