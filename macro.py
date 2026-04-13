@@ -380,6 +380,63 @@ def init_setting(role: str):
     print(f"[macro] turn_xy={_TURN_XY}")
 
 
+def init_custom_hwnd(title: str, role: str = "client"):
+    """
+    title: 찾을 윈도우 타이틀 이름 (해당 타이틀의 윈도우를 lineage1_hwnd로 지정)
+    role: mouse x,y 키 결정에 사용 ("server" / "client" / 그 외 → client_numbering)
+    1. 해당 타이틀의 윈도우를 찾아 lineage1_hwnd로 지정
+    2. 없으면 RuntimeError 발생
+    3. macro_data.json에서 설정 로드:
+       - direction 설정은 공통 적용
+       - mouse x,y는 role에 따라 server/client/client_numbering 키 사용
+    """
+    global lineage1_hwnd
+    global _mouse_key
+    global direction_threshold, adena_per_pickup, current_direction, low_count_direction, high_count_direction
+    global _TURN_XY
+
+    # ── 타이틀로 윈도우 탐색 ──────────────────────────────────────────────────
+    all_windows: dict[str, int] = {}
+    def callback(hwnd, _):
+        if win32gui.IsWindowVisible(hwnd):
+            all_windows[win32gui.GetWindowText(hwnd)] = hwnd
+    win32gui.EnumWindows(callback, None)
+
+    candidates = [hwnd for t, hwnd in all_windows.items() if t.startswith(title)]
+    if not candidates:
+        raise RuntimeError(f"'{title}'으로 시작하는 윈도우를 찾을 수 없습니다.")
+    lineage1_hwnd = candidates[0]
+
+    rect = win32gui.GetWindowRect(lineage1_hwnd)
+    win32gui.MoveWindow(lineage1_hwnd, 0, 0, rect[2] - rect[0], rect[3] - rect[1], True)
+    print(f"[macro] lineage1_hwnd={lineage1_hwnd} → 타이틀 '{win32gui.GetWindowText(lineage1_hwnd)}', 위치 (0, 0)")
+
+    # ── JSON 설정 로드 ─────────────────────────────────────────────────────────
+    data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "macro_data.json")
+    with open(data_path, encoding="utf-8") as f:
+        data = json.load(f)
+
+    # role에 따라 mouse x,y 키 결정
+    if role == "server":
+        mouse_key = "server_mouse_x_y"
+    elif role == "client":
+        mouse_key = "client_mouse_x_y"
+    else:
+        mouse_key = "client_numbering_mouse_x_y"
+
+    _mouse_key = mouse_key
+
+    direction_threshold = data["direction_threshold"]
+    adena_per_pickup = data["adena_per_pickup"]
+    current_direction = data["current_direction"]
+    low_count_direction = data["low_count_direction"]
+    high_count_direction = data["high_count_direction"]
+    for d in ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest']:
+        _TURN_XY[d] = tuple(data[f"turn_{d}_xy"])
+
+    print(f"[macro] mouse_key={mouse_key}")
+    print(f"[macro] direction_threshold={direction_threshold}, current={current_direction}, low={low_count_direction}, high={high_count_direction}")
+    print(f"[macro] turn_xy={_TURN_XY}")
 
 
 def key_down(vk: int):
