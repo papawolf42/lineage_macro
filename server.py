@@ -86,7 +86,6 @@ def _handle_client(conn: socket.socket, addr: tuple):
         _clients.append(client)
     try:
         while True:
-            time.sleep(5)
             with client["lock"]:
                 if not _send_json(conn, {"cmd": "ping"}):
                     break
@@ -110,6 +109,7 @@ def _handle_client(conn: socket.socket, addr: tuple):
                                 if ack and ack.get("status") == "ok":
                                     client["potion_last_used"] = now
                                     print(f"[server] 포션 완료 ack 수신 from {addr}")
+            time.sleep(2)
     finally:
         _remove_client(client)
 
@@ -317,11 +317,13 @@ def exchange_loop():
                     elapsed = time.time() - last_idx_time.get(c["idx"], 0)
                     if elapsed < SAME_UNIT_DELAY:
                         time.sleep(SAME_UNIT_DELAY - elapsed)
-
+                    
                     if "conn" not in c:  # 서버 로컬 실행
+                        print(f"[서버 픽업 실행] - (남은 픽업: {remaining})")
                         macro.pickup_lineage1()
                         ok = True
                     else:
+                        print(f"[서버 → 클라이언트 픽업] idx: {c['idx']} - (남은 픽업: {remaining})")
                         ok = _send_pickup(c)
 
                     last_idx_time[c["idx"]] = time.time()
@@ -329,9 +331,11 @@ def exchange_loop():
                         remaining -= 1
                         pickup_avail[id(c)] -= 1
                         sent_any = True
-                        print(f"[pickup] {c['idx']}  remaining={remaining}")
-
+                        time.sleep(0.5)
+                        
                 if not sent_any:
+                    if remaining > 0:
+                        print(f"[server] 픽업 명령 전송 실패 - 남은 픽업: {remaining}")
                     break
 
             if win32gui.GetForegroundWindow() != macro.lineage1_hwnd:
