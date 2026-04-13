@@ -340,7 +340,7 @@ def exchange_loop():
             if win32gui.GetForegroundWindow() != macro.lineage1_hwnd:
                 macro.force_set_foreground_window(macro.lineage1_hwnd)
             time.sleep(0.5)
-            # macro.arduino_type_string(f"{greeted_nickname}님 고맙습니다~!")
+            macro.arduino_type_string(f"{greeted_nickname[:2]}님 감사합니당~!")
 
             stage = WAIT_NICKNAME
             greeted_nickname = None
