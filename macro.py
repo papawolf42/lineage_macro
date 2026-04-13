@@ -532,7 +532,13 @@ def readAdena() -> int:
         if '(' in text and ')' in text:
             inner = text[text.index('(') + 1:text.index(')')]
             digits = inner.replace(' ', '')
-            return int(digits) if digits else 0
+            try:
+                value = int(digits)
+            except (ValueError, TypeError):
+                continue
+            if value == 0:
+                continue
+            return value
         time.sleep(0.5)
 
 
