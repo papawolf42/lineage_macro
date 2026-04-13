@@ -331,7 +331,6 @@ def exchange_loop():
                         remaining -= 1
                         pickup_avail[id(c)] -= 1
                         sent_any = True
-                        time.sleep(0.5)
                         
                 if not sent_any:
                     if remaining > 0:
