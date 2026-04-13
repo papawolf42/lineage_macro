@@ -383,5 +383,9 @@ if __name__ == "__main__":
         if cmd == "2":
             running = False
         if cmd == "3":
-            client = _clients.pop()
-            _send_pickup(client)
+            with _clients_lock:
+                target = next((c for c in _clients if c.get("idx") == 1 and "conn" in c), None)
+            if target:
+                _send_pickup(target)
+            else:
+                print("[server] idx=1 클라이언트 없음")
