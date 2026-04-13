@@ -11,6 +11,7 @@ import json
 import time
 import threading
 import sys
+from datetime import datetime, timezone, timedelta
 
 import macro
 
@@ -58,7 +59,8 @@ def _handle_command(msg: dict) -> dict | None:
 
     if cmd == "pickup":
         target = msg.get("target")
-        print(f"[client] 픽업 명령 수신: {target}")
+        recv_time = datetime.now(timezone(timedelta(hours=9))).strftime("%H:%M:%S")
+        print(f"[client] 픽업 명령 수신: {target} ({recv_time})")
         macro.pickup_lineage1()
         return {"status": "ok"}
 
