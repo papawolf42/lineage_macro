@@ -486,10 +486,10 @@ def pickup_lineage1():
     x, y = tuple(data[_mouse_key])
     force_set_foreground_window(lineage1_hwnd)
     win32api.SetCursorPos((x, y))
-    time.sleep(0.8)
+    time.sleep(0.4)
     shake_mouse_small(2, 10)
     key_press(win32con.VK_F5)
-    time.sleep(0.8)
+    time.sleep(0.4)
     mouse_click_left(x, y)
     time.sleep(1)
 
