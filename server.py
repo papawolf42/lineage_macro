@@ -5,6 +5,7 @@ server.py - Exchange 서버
   - pickup 시 서버/클라이언트 픽업 분배
 """
 
+import os
 import socket
 import threading
 import json
@@ -142,12 +143,23 @@ def _accept_loop(server_sock: socket.socket):
 
 
 # ── 픽업 명령 전송 ─────────────────────────────────────────────────────────────
-def _send_pickup(client: dict) -> bool:
+def _broadcast_reset_target():
+    with _clients_lock:
+        snapshot = [c for c in _clients if "conn" in c]
+    for c in snapshot:
+        with c["lock"]:
+            _send_json(c["conn"], {"cmd": "reset_target"})
+
+
+def _send_pickup(client: dict, nickname: str | None = None) -> bool:
     """특정 클라이언트에게 pickup 명령을 보내고 ack를 기다린다."""
     conn = client["conn"]
     addr = client["addr"]
     with client["lock"]:
-        if not _send_json(conn, {"cmd": "pickup", "target": "lineage1"}):
+        payload = {"cmd": "pickup", "target": "lineage1"}
+        if nickname:
+            payload["nickname"] = nickname
+        if not _send_json(conn, payload):
             _remove_client(client)
             return False
 
@@ -185,11 +197,13 @@ def exchange_loop():
     prev_stage = None
 
     while running:
-        # 이전 stage가 READ_ADENA 이상이었을 경우 WAIT_NICKNAME 복귀 시 TAB
+        # 이전 stage가 READ_ADENA 이상이었을 경우 WAIT_NICKNAME 복귀 시 TAB + 타겟 리셋
         if stage != prev_stage:
             if stage == WAIT_NICKNAME and prev_stage is not None and prev_stage >= READ_ADENA:
                 macro.key_press(win32con.VK_TAB)
                 time.sleep(0.3)
+                macro.target_locked = False
+                _broadcast_reset_target()
             prev_stage = stage
 
         # ── Stage 1: MP 읽기 / 방향 조정 / 광고 / 닉네임 대기 ──────────────
@@ -266,7 +280,7 @@ def exchange_loop():
                 stage = PICKUP
                 continue
 
-            slot = macro.crop(img, 241, 360, 30, 30)
+            slot = macro.crop(img, 258, 677, 30, 30)
             brightness = macro.get_brightness(slot)
             print(f"[server] 슬롯 밝기: {brightness:.2f}")
 
@@ -326,11 +340,11 @@ def exchange_loop():
 
                     if "conn" not in c:
                         print(f"[서버 픽업 실행] - (남은 픽업: {remaining})")
-                        macro.pickup_lineage1()
+                        macro.pickup_lineage1(target_nickname=greeted_nickname)
                         ok = True
                     else:
                         print(f"[서버 → 클라이언트 픽업] idx: {c['idx']} - (남은 픽업: {remaining})")
-                        ok = _send_pickup(c)
+                        ok = _send_pickup(c, nickname=greeted_nickname)
 
                     last_idx_time[c["idx"]] = time.time()
                     if ok:

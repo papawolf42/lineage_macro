@@ -326,6 +326,7 @@ def arduino_init_cursor():
     _arduino_send('INIT')
 
 _mouse_key: str | None = None
+target_locked: bool = False
 current_direction = 'north'
 available_count_1 = 0
 mp_1 = 0
@@ -609,7 +610,8 @@ def use_potion():
     _arduino_send(f'KP,{win32con.VK_F8}')
 
 
-def pickup_lineage1():
+def pickup_lineage1(target_nickname: str | None = None):
+    global target_locked
     data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "macro_data.json")
     with open(data_path, encoding="utf-8") as f:
         data = json.load(f)
@@ -617,8 +619,25 @@ def pickup_lineage1():
     force_set_foreground_window(lineage1_hwnd)
     win32api.SetCursorPos((x, y))
     time.sleep(0.3)
-    mouse_click_right(x, y)
-    time.sleep(0.3)
+
+    if not target_locked:
+        for attempt in range(4):
+            arduino_mouse_shift_click_right(x, y)
+            time.sleep(0.3)
+            img = screenshot(hwnd=lineage1_hwnd)
+            input_text = readInputText(img)
+            print(f"[macro] 타겟 확인 ({attempt+1}/4): '{input_text}' == '{target_nickname}'?")
+            arduino_key_down(win32con.VK_CONTROL)
+            arduino_key_press(win32con.VK_BACK)
+            arduino_key_up(win32con.VK_CONTROL)
+            time.sleep(0.3)
+            if target_nickname is None or input_text == target_nickname:
+                target_locked = True
+                print("[macro] 타겟 고정 성공")
+                break
+        else:
+            print("[macro] 타겟 고정 실패 - pickup 진행")
+
     key_press(win32con.VK_F5)
     time.sleep(0.3)
     mouse_click_left(x, y)
@@ -687,11 +706,7 @@ def readExchangeNickname(img=None):
 
 
 def acceptExchange():
-    """교환 수락: 닉네임 좌표 + (143, 291) 클릭 → Y → 엔터"""
-    if _exchange_nickname_xy is None:
-        raise RuntimeError("exchange nickname xy가 세팅되지 않았습니다")
-    x, y = _exchange_nickname_xy[0] + 143, _exchange_nickname_xy[1] + 291
-    win32api.SetCursorPos((x, y))
+    win32api.SetCursorPos((247, 752))
     time.sleep(0.5)
     _arduino_send('CL')
     time.sleep(0.5)

@@ -3,6 +3,7 @@ client.py - Pickup 클라이언트
   - 서버에 TCP 연결 후 명령 수신
   - ping 수신 시 readMp()로 마나 측정 후 pong 응답
   - "pickup" 명령 수신 시 pickup_lineage1() 실행
+  - "reset_target" 수신 시 target_locked 리셋
   - 소켓 끊김 시 자동 재연결 시도
 """
 
@@ -59,15 +60,21 @@ def _handle_command(msg: dict) -> dict | None:
 
     if cmd == "pickup":
         target = msg.get("target")
+        nickname = msg.get("nickname")
         recv_time = datetime.now(timezone(timedelta(hours=9))).strftime("%H:%M:%S")
         print(f"[client] 픽업 명령 수신: {target} ({recv_time})")
-        macro.pickup_lineage1()
+        macro.pickup_lineage1(target_nickname=nickname)
         return {"status": "ok"}
 
     if cmd == "potion":
         print(f"[client] 포션 명령 수신")
         macro.use_potion()
         return {"status": "ok"}
+
+    if cmd == "reset_target":
+        macro.target_locked = False
+        print("[client] 타겟 리셋")
+        return None
 
     print(f"[client] 알 수 없는 명령: {msg}")
     return None
