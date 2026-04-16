@@ -1,5 +1,15 @@
+import time
+
 import macro
-macro.init_setting("server")
-# macro.init_mouse_x_y()
-adena = macro.readMp()
-print(f"현재 아데나: {adena}")
+import imageProcesser
+
+
+def main() -> None:
+    macro.init_setting("server")
+    text = macro.readExchangeNickname()
+    print(text)
+    macro.force_set_foreground_window(macro.lineage1_hwnd)
+    time.sleep(1)
+    macro.acceptExchange()
+if __name__ == "__main__":
+    main()

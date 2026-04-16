@@ -19,7 +19,70 @@ from PIL import Image
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools"))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import hangul
-import imageProcesser
+
+_BASE = os.path.dirname(os.path.abspath(__file__))
+_CONVERTED_DATA_PATH = os.path.join(_BASE, "converted_data.json")
+with open(_CONVERTED_DATA_PATH, encoding="utf-8") as _f:
+    _converted_map: dict[str, str] = json.load(_f)
+
+
+def lookup(coord_string: str) -> str | None:
+    return _converted_map.get(coord_string)
+
+
+def image_to_coord_string(image: Image.Image, color: tuple) -> str:
+    arr = np.array(image.convert("RGB"))
+    r, g, b = color
+    mask = (arr[:,:,0] == r) & (arr[:,:,1] == g) & (arr[:,:,2] == b)
+    ys, xs = np.where(mask)
+    coords = sorted(zip(xs, ys))
+    return ''.join(f"{x}{y}" for x, y in coords)
+
+
+def crop(image: Image.Image, x: int, y: int, width: int, height: int) -> Image.Image:
+    return image.crop((x, y, x + width, y + height))
+
+
+def read_text(image: Image.Image, x: int, y: int, color: tuple) -> str:
+    result = []
+    img_width = image.width
+    while x < img_width:
+        matched = None
+        matched_width = None
+        for w in (10, 20):
+            if x + w > img_width:
+                continue
+            s = image_to_coord_string(crop(image, x, y, w, 24), color)
+            if lookup(s) is not None:
+                matched = lookup(s)
+                matched_width = w
+                break
+        if matched is None:
+            break
+        result.append(matched)
+        x += matched_width
+    return ''.join(result)
+
+
+def read_line(image: Image.Image, x: int, y: int, color: tuple) -> str:
+    text = read_text(image, x, y, color)
+    if not text:
+        text = read_text(image, x + 10, y, color)
+    return text
+
+
+def _read_exchange_nickname_img(screenshot: Image.Image, y: int = 292) -> str:
+    x = 107
+    w, h = 140, 24
+    color = (255, 255, 255)
+    best = ''
+    while x >= 57:
+        cropped = crop(screenshot, x, y, w, h)
+        text = read_text(cropped, 0, 0, color)
+        if len(text) > len(best):
+            best = text
+        x -= 5
+    return best
 
 lineage1_hwnd = None
 
@@ -272,6 +335,7 @@ low_count_direction = 'southeast'
 high_count_direction = 'northwest'
 exchange_yes_button = (869, 914)  # 교환 수락 Yes 좌표
 exchange_no_button = (917, 912)   # 교환 수락 No 좌표
+_exchange_nickname_xy: tuple[int, int] | None = None
 
 
 def set_hwnd(hwnd: int):
@@ -468,7 +532,7 @@ def move_window(x: int, y: int):
     win32gui.MoveWindow(hwnd, x, y, width, height, True)
 
 
-def screenshot(filename: str = None, hwnd: int = None) -> str:
+def screenshot(filename: str = None, hwnd: int = None) -> Image.Image:
     if hwnd is None:
         hwnd = get_hwnd()
     rect = win32gui.GetWindowRect(hwnd)
@@ -580,8 +644,8 @@ def readMp(img=None) -> int:
     if img is None:
         img = screenshot()
     for dx in (0, 5, 10):
-        cropped = imageProcesser.crop(img, 976 + dx, 96, 100, 21)
-        text = imageProcesser.read_text(cropped, 0, 0, (0xCC, 0xE3, 0xFF))
+        cropped = crop(img, 976 + dx, 96, 100, 21)
+        text = read_text(cropped, 0, 0, (0xCC, 0xE3, 0xFF))
         parts = text.split('/')
         digits = ''.join(c for c in parts[0] if c.isdigit())
         if digits:
@@ -594,8 +658,8 @@ def readAdena() -> int:
     while True:
         key_press(win32con.VK_F9)
         img = screenshot()
-        cropped = imageProcesser.crop(img, 228 + 60 + 5 + 5, 883, 500, 21)
-        text = imageProcesser.read_text(cropped, 0, 0, (0xFF, 0xF1, 0xB5))
+        cropped = crop(img, 228 + 60 + 5 + 5, 883, 500, 21)
+        text = read_text(cropped, 0, 0, (0xFF, 0xF1, 0xB5))
         if '(' in text and ')' in text:
             inner = text[text.index('(') + 1:text.index(')')]
             digits = inner.replace(' ', '')
@@ -610,18 +674,60 @@ def readAdena() -> int:
 
 
 def readExchangeNickname(img=None):
+    global _exchange_nickname_xy
     if img is None:
         img = screenshot()
-    text = imageProcesser.readExchangeNickname(img)
-    return text
+    if _exchange_nickname_xy is None:
+        _exchange_nickname_xy = findExchangeNicknameY(img)
+        if _exchange_nickname_xy is None:
+            raise RuntimeError("교환 닉네임 좌표를 찾을 수 없습니다 (y=480~50 스캔 실패)")
+        print(f"[macro] exchange nickname xy 세팅됨: {_exchange_nickname_xy}")
+    _, y = _exchange_nickname_xy
+    return _read_exchange_nickname_img(img, y)
+
+
+def acceptExchange():
+    """교환 수락: 닉네임 좌표 + (143, 291) 클릭 → Y → 엔터"""
+    if _exchange_nickname_xy is None:
+        raise RuntimeError("exchange nickname xy가 세팅되지 않았습니다")
+    x, y = _exchange_nickname_xy[0] + 143, _exchange_nickname_xy[1] + 291
+    win32api.SetCursorPos((x, y))
+    time.sleep(0.5)
+    _arduino_send('CL')
+    time.sleep(0.5)
+    arduino_key_press(ord('Y'))
+    time.sleep(0.1)
+    _arduino_send(f'KP,{win32con.VK_RETURN}')
+    time.sleep(0.3)
+
+
+def findExchangeNicknameY(img=None) -> tuple[int, int] | None:
+    """y=480에서 50까지 스캔하며 닉네임 텍스트가 처음 발견되는 (x, y) 좌표를 반환한다."""
+    if img is None:
+        img = screenshot()
+    w, h = 140, 24
+    color = (255, 255, 255)
+    for y in range(480, 49, -1):
+        for x in range(107, 56, -5):
+            cropped = crop(img, x, y, w, h)
+            text = read_text(cropped, 0, 0, color)
+            if text:
+                return (x, y)
+    return None
+
+
+def readInputText(img=None) -> str:
+    if img is None:
+        img = screenshot()
+    return read_text(img, 249, 933, (0xff, 0xff, 0xff)).replace('|', '')
 
 
 def monitor_chat():
     prev = None
     while True:
         img = screenshot()
-        cropped = imageProcesser.crop(img, 228, 907, 140, 25)
-        text = imageProcesser.read_text(cropped, 0, 0, (0xAF, 0xEB, 0xEB))
+        cropped = crop(img, 228, 907, 140, 25)
+        text = read_text(cropped, 0, 0, (0xAF, 0xEB, 0xEB))
         if text != prev:
             print(text)
             prev = text

@@ -15,7 +15,6 @@ import win32con
 import win32gui
 
 import macro
-import imageProcesser
 
 HOST = '0.0.0.0'
 PORT = 9999
@@ -255,20 +254,13 @@ def exchange_loop():
                 stage = PICKUP
                 continue
 
-            slot = imageProcesser.crop(img, 241, 360, 30, 30)
+            slot = macro.crop(img, 241, 360, 30, 30)
             brightness = macro.get_brightness(slot)
             print(f"[server] 슬롯 밝기: {brightness:.2f}")
 
             if prev_brightness is not None and brightness != prev_brightness:
                 brightness_changed = True
-                win32api.SetCursorPos((248, 585))
-                time.sleep(0.5)
-                macro._arduino_send('CL')
-                time.sleep(0.5)
-                macro.key_press(ord('Y'))
-                time.sleep(0.1)
-                macro._arduino_send(f'KP,{win32con.VK_RETURN}')
-                time.sleep(0.3)
+                macro.acceptExchange()
             prev_brightness = brightness
             time.sleep(0.5)
 

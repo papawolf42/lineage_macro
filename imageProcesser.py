@@ -48,9 +48,9 @@ def read_line(image: Image.Image, x: int, y: int, color: tuple) -> str:
     return text
 
 
-def readExchangeNickname(screenshot: Image.Image) -> str:
+def readExchangeNickname(screenshot: Image.Image, y: int = 292) -> str:
     x = 107
-    y, w, h = 292, 140, 24
+    w, h = 140, 24
     color = (255, 255, 255)
     best = ''
     while x >= 57:
