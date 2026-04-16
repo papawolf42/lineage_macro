@@ -55,6 +55,34 @@ def _recv_json(conn: socket.socket) -> dict | None:
         return None
 
 
+def _try_use_potion(client: dict) -> bool:
+    if client["available"] != 0:
+        return False
+    now = time.time()
+    if now - client["potion_last_used"] < POTION_COOLDOWN:
+        return False
+
+    if "conn" not in client:  # 서버 로컬
+        macro.use_potion()
+        client["potion_last_used"] = now
+        time.sleep(3)
+        macro.force_set_foreground_window(macro.lineage1_hwnd)
+        return True
+
+    conn = client["conn"]
+    addr = client["addr"]
+    print(f"[server] 포션 전송 → {addr}")
+    if _send_json(conn, {"cmd": "potion"}):
+        conn.settimeout(ACK_TIMEOUT)
+        ack = _recv_json(conn)
+        conn.settimeout(None)
+        if ack and ack.get("status") == "ok":
+            client["potion_last_used"] = now
+            print(f"[server] 포션 완료 ack 수신 from {addr}")
+            return True
+    return False
+
+
 def _remove_client(client: dict):
     with _clients_lock:
         _clients[:] = [e for e in _clients if e is not client]
@@ -97,17 +125,7 @@ def _handle_client(conn: socket.socket, addr: tuple):
                     client["mp"] = resp.get("mp", 0)
                     client["available"] = int(client["mp"] // 20)
                     # print(f"[server] client {addr} MP: {client['mp']}  available: {client['available']}")
-                    if client["available"] == 0:
-                        now = time.time()
-                        if now - client["potion_last_used"] >= POTION_COOLDOWN:
-                            print(f"[server] 포션 전송 → {addr}")
-                            if _send_json(conn, {"cmd": "potion"}):
-                                conn.settimeout(ACK_TIMEOUT)
-                                ack = _recv_json(conn)
-                                conn.settimeout(None)
-                                if ack and ack.get("status") == "ok":
-                                    client["potion_last_used"] = now
-                                    print(f"[server] 포션 완료 ack 수신 from {addr}")
+                    _try_use_potion(client)
             time.sleep(2)
     finally:
         _remove_client(client)
@@ -167,7 +185,7 @@ def exchange_loop():
     prev_stage = None
 
     while running:
-        # 이전 stage가 READ_ADENA 이상이었을 경우 WAIT_NICKNAME 복귀 시 ESC
+        # 이전 stage가 READ_ADENA 이상이었을 경우 WAIT_NICKNAME 복귀 시 TAB
         if stage != prev_stage:
             if stage == WAIT_NICKNAME and prev_stage is not None and prev_stage >= READ_ADENA:
                 macro.key_press(win32con.VK_TAB)
@@ -183,16 +201,10 @@ def exchange_loop():
 
             with _clients_lock:
                 for e in _clients:
-                    if "conn" not in e:  # 서버 본인 엔트리
+                    if "conn" not in e:
                         e["mp"] = macro.mp_1
                         e["available"] = int(macro.mp_1 // 20)
-                        if e["available"] == 0:
-                            now = time.time()
-                            if now - e["potion_last_used"] >= POTION_COOLDOWN:
-                                macro.use_potion()
-                                e["potion_last_used"] = now
-                                time.sleep(3)
-                                macro.force_set_foreground_window(macro.lineage1_hwnd)
+                        _try_use_potion(e)
                         break
                 clients_snapshot = list(_clients)
 
@@ -311,8 +323,8 @@ def exchange_loop():
                     elapsed = time.time() - last_idx_time.get(c["idx"], 0)
                     if elapsed < SAME_UNIT_DELAY:
                         time.sleep(SAME_UNIT_DELAY - elapsed)
-                    
-                    if "conn" not in c:  # 서버 로컬 실행
+
+                    if "conn" not in c:
                         print(f"[서버 픽업 실행] - (남은 픽업: {remaining})")
                         macro.pickup_lineage1()
                         ok = True
@@ -325,7 +337,7 @@ def exchange_loop():
                         remaining -= 1
                         pickup_avail[id(c)] -= 1
                         sent_any = True
-                        
+
                 if not sent_any:
                     if remaining > 0:
                         print(f"[server] 픽업 명령 전송 실패 - 남은 픽업: {remaining}")
@@ -334,7 +346,7 @@ def exchange_loop():
             if win32gui.GetForegroundWindow() != macro.lineage1_hwnd:
                 macro.force_set_foreground_window(macro.lineage1_hwnd)
             time.sleep(0.5)
-            if received > 0: 
+            if received > 0:
                 display_name = greeted_nickname[:2] if len(greeted_nickname) > 2 else greeted_nickname
                 macro.arduino_type_string(f"{display_name}님 감사합니당~!")
 
