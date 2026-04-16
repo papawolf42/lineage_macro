@@ -309,7 +309,7 @@ def exchange_loop():
             # pickup loop 전용 카운터를 따로 유지한다.
             pickup_avail: dict[int, int] = {id(c): c["available"] for c in clients_snapshot}
             total_available = sum(pickup_avail.values())
-            remaining = min(pickup_count, total_available)
+            remaining = min(macro.direction_threshold, total_available)
             print(f"remaining pickup count: {remaining} (received: {received}, available: {total_available})")
 
             # ── 픽업 분배 ───────────────────────────────────────────────────
