@@ -680,7 +680,7 @@ def readExchangeNickname(img=None):
     if _exchange_nickname_xy is None:
         _exchange_nickname_xy = findExchangeNicknameY(img)
         if _exchange_nickname_xy is None:
-            raise RuntimeError("교환 닉네임 좌표를 찾을 수 없습니다 (y=480~50 스캔 실패)")
+            return ''
         print(f"[macro] exchange nickname xy 세팅됨: {_exchange_nickname_xy}")
     _, y = _exchange_nickname_xy
     return _read_exchange_nickname_img(img, y)
