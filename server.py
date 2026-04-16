@@ -192,6 +192,8 @@ def exchange_loop():
                             if now - e["potion_last_used"] >= POTION_COOLDOWN:
                                 macro.use_potion()
                                 e["potion_last_used"] = now
+                                time.sleep(3)
+                                macro.force_set_foreground_window(macro.lineage1_hwnd)
                         break
                 clients_snapshot = list(_clients)
 
