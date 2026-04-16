@@ -243,7 +243,7 @@ def exchange_loop():
                     macro._DIRECTION_FUNCS[macro.high_count_direction]()
                     time.sleep(1)
 
-            if time.time() - _last_type_string_time >= 30:
+            if time.time() - _last_type_string_time >= 12:
                 _ad_formats = [
                     f"\\f2 헤이 {macro.adena_per_pickup} \\f={total_count}방!",
                     f"\\f2 {total_count}방 가능 \\f=한방에 {macro.adena_per_pickup}아데나!",
