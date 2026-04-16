@@ -112,6 +112,15 @@ def arduino_mouse_shift_click_left(x: int, y: int):
     _arduino_send(f'KU,{win32con.VK_SHIFT}')
 
 
+def arduino_mouse_shift_click_right(x: int, y: int):
+    win32api.SetCursorPos((x, y))
+    _arduino_send(f'KD,{win32con.VK_SHIFT}')
+    time.sleep(0.05)
+    _arduino_send('CR')
+    time.sleep(0.05)
+    _arduino_send(f'KU,{win32con.VK_SHIFT}')
+
+
 def arduino_backspace(n: int):
     _arduino_send(f'BS,{n}')
 
