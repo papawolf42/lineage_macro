@@ -9,6 +9,7 @@ import socket
 import threading
 import serial
 import sys
+from serial.tools import list_ports
 
 SERIAL_PORT = 'COM5'
 BAUD_RATE   = 115200
@@ -20,8 +21,17 @@ try:
     _ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
     print(f"[proxy] Arduino 연결됨: {SERIAL_PORT} @ {BAUD_RATE}")
 except serial.SerialException as e:
-    print(f"[proxy] 시리얼 포트 열기 실패: {e}")
-    sys.exit(1)
+    _port = next((p.device for p in list_ports.comports()
+                  if any(k in f"{p.description} {p.manufacturer} {p.hwid}".lower()
+                         for k in ("arduino", "leonardo", "micro"))), None)
+    try:
+        if not _port:
+            raise e
+        _ser = serial.Serial(_port, BAUD_RATE, timeout=1)
+    except serial.SerialException as e:
+        print(f"[proxy] 시리얼 포트 열기 실패: {e}")
+        sys.exit(1)
+    print(f"[proxy] Arduino 연결됨: {_port} @ {BAUD_RATE}")
 
 _ser_lock = threading.Lock()
 
