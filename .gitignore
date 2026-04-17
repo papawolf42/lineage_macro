@@ -5,3 +5,4 @@ data/
 data2/
 scripts/
 docs/
+*.json
