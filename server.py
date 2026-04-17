@@ -35,6 +35,35 @@ running = True          # exchange 루프 제어 (cmd 1=시작, 2=중지)
 _server_running = True  # accept 루프 제어 (q 입력 시에만 False)
 
 
+def _choose_window_title() -> str:
+    titles = []
+
+    def callback(hwnd, _):
+        if not win32gui.IsWindowVisible(hwnd):
+            return
+        title = win32gui.GetWindowText(hwnd)
+        if title.startswith("Lineage Classic") or title == "server" or title.startswith("client"):
+            titles.append(title)
+
+    win32gui.EnumWindows(callback, None)
+    titles = list(dict.fromkeys(titles))
+    if not titles:
+        raise RuntimeError("선택할 수 있는 게임 창을 찾을 수 없습니다.")
+    if len(titles) == 1:
+        print(f"[server] 창 자동 선택: {titles[0]}")
+        return titles[0]
+
+    print("[server] 사용할 창을 선택하세요.")
+    for idx, title in enumerate(titles, start=1):
+        print(f"{idx}. {title}")
+
+    while True:
+        choice = input("window> ").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(titles):
+            return titles[int(choice) - 1]
+        print("번호를 다시 입력하세요.")
+
+
 def _send_json(conn: socket.socket, obj: dict) -> bool:
     try:
         conn.sendall((json.dumps(obj) + '\n').encode())
@@ -243,13 +272,14 @@ def exchange_loop():
                     macro._DIRECTION_FUNCS[macro.high_count_direction]()
                     time.sleep(1)
 
-            if time.time() - _last_type_string_time >= 12:
-                _ad_formats = [
-                    "어서오세융 @ㅜ@)>",
-                    "어서오세융! @ㅜ@)>",
-                ]
-                macro.arduino_type_string(random.choice(_ad_formats))
-                _last_type_string_time = time.time()
+            # 광고 문구는 현재 비활성화.
+            # if time.time() - _last_type_string_time >= 12:
+            #     _ad_formats = [
+            #         "어서오세융 @ㅜ@)>",
+            #         "어서오세융! @ㅜ@)>",
+            #     ]
+            #     macro.arduino_type_string(random.choice(_ad_formats))
+            #     _last_type_string_time = time.time()
 
             nickname = macro.readExchangeNickname(img=img)
             if nickname:
@@ -373,7 +403,7 @@ def exchange_loop():
 
 # ── 진입점 ────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    macro.init_setting("server")
+    macro.init_custom_hwnd(_choose_window_title(), role="server")
 
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

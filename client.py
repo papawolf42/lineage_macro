@@ -16,7 +16,7 @@ from datetime import datetime, timezone, timedelta
 
 import macro
 
-SERVER_HOST = '220.119.210.140'  # ← 서버 IP로 변경
+SERVER_HOST = '172.30.1.70'  # ← 서버 IP로 변경
 SERVER_PORT = 9999
 RECONNECT_DELAY = 5  # 재연결 대기 시간(초)
 
@@ -27,6 +27,35 @@ CLIENT_IDX = int(sys.argv[1])
 
 running = False
 _conn_thread = None
+
+
+def _choose_window_title() -> str:
+    titles = []
+
+    def callback(hwnd, _):
+        if not macro.win32gui.IsWindowVisible(hwnd):
+            return
+        title = macro.win32gui.GetWindowText(hwnd)
+        if title.startswith("Lineage Classic") or title == "server" or title.startswith("client"):
+            titles.append(title)
+
+    macro.win32gui.EnumWindows(callback, None)
+    titles = list(dict.fromkeys(titles))
+    if not titles:
+        raise RuntimeError("선택할 수 있는 게임 창을 찾을 수 없습니다.")
+    if len(titles) == 1:
+        print(f"[client] 창 자동 선택: {titles[0]}")
+        return titles[0]
+
+    print("[client] 사용할 창을 선택하세요.")
+    for idx, title in enumerate(titles, start=1):
+        print(f"{idx}. {title}")
+
+    while True:
+        choice = input("window> ").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(titles):
+            return titles[int(choice) - 1]
+        print("번호를 다시 입력하세요.")
 
 
 def _send_json(conn: socket.socket, obj: dict) -> bool:
@@ -119,7 +148,7 @@ def _connect_loop():
 
 
 if __name__ == "__main__":
-    macro.init_setting("client")
+    macro.init_custom_hwnd(_choose_window_title(), role="client")
 
     print("명령어: 1=연결 시작, 2=연결 중지, q=종료")
     while True:
