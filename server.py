@@ -66,8 +66,6 @@ def _try_use_potion(client: dict) -> bool:
     if "conn" not in client:  # 서버 로컬
         macro.use_potion()
         client["potion_last_used"] = now
-        time.sleep(3)
-        macro.force_set_foreground_window(macro.lineage1_hwnd)
         return True
 
     conn = client["conn"]
@@ -126,7 +124,6 @@ def _handle_client(conn: socket.socket, addr: tuple):
                     client["mp"] = resp.get("mp", 0)
                     client["available"] = int(client["mp"] // 20)
                     # print(f"[server] client {addr} MP: {client['mp']}  available: {client['available']}")
-                    _try_use_potion(client)
             time.sleep(2)
     finally:
         _remove_client(client)
@@ -193,6 +190,7 @@ def exchange_loop():
     brightness_changed = False
     _last_type_string_time = 0
     _last_status_print_time = 0
+    _last_potion_idx_time: dict = {}
     clients_snapshot = []
     prev_stage = None
 
@@ -218,9 +216,17 @@ def exchange_loop():
                     if "conn" not in e:
                         e["mp"] = macro.mp_1
                         e["available"] = int(macro.mp_1 // 20)
-                        _try_use_potion(e)
                         break
                 clients_snapshot = list(_clients)
+
+            for e in clients_snapshot:
+                elapsed = time.time() - _last_potion_idx_time.get(e["idx"], 0)
+                if elapsed < SAME_UNIT_DELAY:
+                    time.sleep(SAME_UNIT_DELAY - elapsed)
+                if _try_use_potion(e):
+                    _last_potion_idx_time[e["idx"]] = time.time()
+                    if e["idx"] == 0 and "conn" in e:
+                        macro.force_set_foreground_window(macro.lineage1_hwnd)
 
             total_count = sum(e["available"] for e in clients_snapshot)
             if time.time() - _last_status_print_time >= 3:
