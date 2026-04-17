@@ -245,11 +245,8 @@ def exchange_loop():
 
             if time.time() - _last_type_string_time >= 12:
                 _ad_formats = [
-                    f"\\f2 헤이 {macro.adena_per_pickup} \\f={total_count}방!",
-                    f"\\f2 {total_count}방 가능 \\f=한방에 {macro.adena_per_pickup}아데나!",
-                    f"\\f2 헤이 200 \\f= 6방 1200",
-                    f"\\f2 {total_count}방 팝니다~ {macro.adena_per_pickup}",
-                    f"\\f2 {macro.adena_per_pickup}에 {total_count}방 ㄱㄱ",
+                    "어서오세융 @ㅜ@)>",
+                    "어서오세융! @ㅜ@)>",
                 ]
                 macro.arduino_type_string(random.choice(_ad_formats))
                 _last_type_string_time = time.time()
@@ -361,8 +358,11 @@ def exchange_loop():
                 macro.force_set_foreground_window(macro.lineage1_hwnd)
             time.sleep(0.5)
             if received > 0:
-                display_name = greeted_nickname[:2] if len(greeted_nickname) > 2 else greeted_nickname
-                macro.arduino_type_string(f"{display_name}님 감사합니당~!")
+                _thanks_formats = [
+                    "감사합니닷!",
+                    "감사합니닷 @ㅜ@)>",
+                ]
+                macro.arduino_type_string(random.choice(_thanks_formats))
 
             stage = WAIT_NICKNAME
             greeted_nickname = None
