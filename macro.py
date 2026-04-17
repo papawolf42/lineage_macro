@@ -618,19 +618,19 @@ def pickup_lineage1(target_nickname: str | None = None):
     x, y = tuple(data[_mouse_key])
     force_set_foreground_window(lineage1_hwnd)
     win32api.SetCursorPos((x, y))
-    time.sleep(0.3)
+    time.sleep(0.1)
 
     if not target_locked:
         for attempt in range(4):
             arduino_mouse_shift_click_right(x, y)
-            time.sleep(0.3)
+            time.sleep(0.1)
             img = screenshot(hwnd=lineage1_hwnd)
             input_text = readInputText(img)
             print(f"[macro] 타겟 확인 ({attempt+1}/4): '{input_text}' == '{target_nickname}'?")
             arduino_key_down(win32con.VK_CONTROL)
             arduino_key_press(win32con.VK_BACK)
             arduino_key_up(win32con.VK_CONTROL)
-            time.sleep(0.3)
+            time.sleep(0.1)
             if target_nickname is None or input_text == target_nickname:
                 target_locked = True
                 print("[macro] 타겟 고정 성공")
@@ -639,9 +639,9 @@ def pickup_lineage1(target_nickname: str | None = None):
             print("[macro] 타겟 고정 실패 - pickup 진행")
 
     key_press(win32con.VK_F5)
-    time.sleep(0.3)
+    time.sleep(0.1)
     mouse_click_left(x, y)
-    time.sleep(0.5)
+    time.sleep(0.1)
 
 
 

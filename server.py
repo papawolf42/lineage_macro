@@ -20,7 +20,6 @@ import macro
 HOST = '0.0.0.0'
 PORT = 9999
 ACK_TIMEOUT = 10      # 픽업 ack 대기 최대 시간(초)
-SAME_UNIT_DELAY = 1   # 같은 PC 내 클라이언트 간 픽업 딜레이(초)
 POTION_COOLDOWN = 600 # 포션 쿨타임(초)
 
 # ── 클라이언트 관리 ───────────────────────────────────────────────────────────
@@ -316,9 +315,6 @@ def exchange_loop():
             # 매 라운드: 전체 중 available 최댓값 탐색
             #   → 공유자 여럿이면 idx 내림차순 모두 실행
             #   → 혼자면 해당 client만 실행
-            # 같은 idx는 SAME_UNIT_DELAY 이내 재전송 금지
-            last_idx_time: dict = {}
-
             while remaining > 0:
                 with_avail = [c for c in clients_snapshot if pickup_avail[id(c)] > 0]
                 if not with_avail:
@@ -334,10 +330,6 @@ def exchange_loop():
                 for c in candidates:
                     if remaining <= 0:
                         break
-                    elapsed = time.time() - last_idx_time.get(c["idx"], 0)
-                    if elapsed < SAME_UNIT_DELAY:
-                        time.sleep(SAME_UNIT_DELAY - elapsed)
-
                     if "conn" not in c:
                         print(f"[서버 픽업 실행] - (남은 픽업: {remaining})")
                         macro.pickup_lineage1(target_nickname=greeted_nickname)
@@ -346,7 +338,6 @@ def exchange_loop():
                         print(f"[서버 → 클라이언트 픽업] idx: {c['idx']} - (남은 픽업: {remaining})")
                         ok = _send_pickup(c, nickname=greeted_nickname)
 
-                    last_idx_time[c["idx"]] = time.time()
                     if ok:
                         remaining -= 1
                         pickup_avail[id(c)] -= 1
@@ -359,7 +350,7 @@ def exchange_loop():
 
             if win32gui.GetForegroundWindow() != macro.lineage1_hwnd:
                 macro.force_set_foreground_window(macro.lineage1_hwnd)
-            time.sleep(0.5)
+            time.sleep(0.1)
             if received > 0:
                 display_name = greeted_nickname[:2] if len(greeted_nickname) > 2 else greeted_nickname
                 macro.arduino_type_string(f"{display_name}님 감사합니당~!")
