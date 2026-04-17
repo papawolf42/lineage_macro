@@ -558,7 +558,7 @@ def screenshot(filename: str = None, hwnd: int = None) -> Image.Image:
     mfc_dc.DeleteDC()
     win32gui.ReleaseDC(hwnd, hwnd_dc)
 
-    img = img.crop((0, 0, img.width - 16, img.height - 41))
+    img = img.crop((0, 1, img.width - 16, img.height - 40))
 
     if filename is None:
         filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".png"
