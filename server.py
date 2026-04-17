@@ -86,7 +86,7 @@ def _recv_json(conn: socket.socket) -> dict | None:
 
 
 def _try_use_potion(client: dict) -> bool:
-    if client["available"] != 0:
+    if client["available"] >= 2:
         return False
     now = time.time()
     if now - client["potion_last_used"] < POTION_COOLDOWN:
