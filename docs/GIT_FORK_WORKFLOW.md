@@ -42,6 +42,39 @@ git push origin main
 3. `git push origin main`
    반영된 결과를 내 포크 저장소에 올린다.
 
+## 현재 브랜치 규칙
+
+현재는 브랜치 역할을 아래처럼 고정해서 쓴다.
+
+- `main`: `upstream/main`을 따라가는 기준 브랜치
+- `gunkim`: 실제 개발과 문서 작업을 하는 브랜치
+
+즉, `main`에서는 직접 개발하지 않는다. 부모 저장소 최신 변경을 안전하게 받아오는 용도로만 쓴다.
+
+## 현재 운영 절차
+
+부모 저장소 최신 변경을 반영할 때는 먼저 `main`을 업데이트한다.
+
+```powershell
+git switch main
+git fetch upstream --prune
+git merge --ff-only upstream/main
+git push origin main
+```
+
+그 다음 실제 작업 브랜치인 `gunkim`으로 돌아가서 `main`을 합친다.
+
+```powershell
+git switch gunkim
+git merge main
+git push origin gunkim
+```
+
+이 흐름을 쓰면 기준선과 작업선이 분리된다.
+
+- 부모 원본과 같은 코드 확인: `main`
+- 실제 개발, 디버깅, 문서 작업: `gunkim`
+
 ## 일상 규칙
 
 - plain `git push`의 대상은 항상 `origin`이라고 생각한다.
@@ -51,7 +84,7 @@ git push origin main
 
 ## 브랜치 작업 예시
 
-기능 작업은 이런 식으로 한다.
+현재 저장소에서는 보통 `gunkim`을 작업 브랜치로 쓴다.
 
 ```powershell
 git switch main
@@ -59,11 +92,12 @@ git fetch upstream --prune
 git merge --ff-only upstream/main
 git push origin main
 
-git switch -c feature/something
-git push -u origin feature/something
+git switch gunkim
+git merge main
+git push origin gunkim
 ```
 
-이렇게 하면 `main`은 부모 저장소 기준선에 가깝게 유지되고, 실제 작업은 포크 브랜치에서 분리된다.
+필요하면 `gunkim`에서 다시 기능 브랜치를 따로 파도 되지만, 기본 규칙은 `main`은 기준선, `gunkim`은 개발 브랜치다.
 
 ## push 관련 메모
 
