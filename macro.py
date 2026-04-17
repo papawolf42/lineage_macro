@@ -607,7 +607,7 @@ def shake_mouse_small(count=10, dist=10, delay=0.05):
 def use_potion():
     force_set_foreground_window(lineage1_hwnd)
     time.sleep(0.5)
-    _arduino_send(f'KP,{win32con.VK_F8}')
+    _arduino_send(f'KP,{win32con.VK_F10}')
 
 
 def pickup_lineage1(target_nickname: str | None = None):
