@@ -226,6 +226,7 @@ def exchange_loop():
                 if _try_use_potion(e):
                     _last_potion_idx_time[e["idx"]] = time.time()
                     if e["idx"] == 0 and "conn" in e:
+                        time.sleep(0.5)
                         macro.force_set_foreground_window(macro.lineage1_hwnd)
 
             total_count = sum(e["available"] for e in clients_snapshot)
