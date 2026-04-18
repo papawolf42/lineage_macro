@@ -250,13 +250,9 @@ def exchange_loop():
                     macro._DIRECTION_FUNCS[macro.high_count_direction]()
                     time.sleep(1)
 
-            if time.time() - _last_type_string_time >= 12:
+            if time.time() - _last_type_string_time >= 5:
                 _ad_formats = [
-                    f"\\f2 헤이 {macro.adena_per_pickup} \\f={total_count}방!",
-                    f"\\f2 {total_count}방 가능 \\f=한방에 {macro.adena_per_pickup}아데나!",
-                    f"\\f2 헤이 200 \\f= 6방 1200",
-                    f"\\f2 {total_count}방 팝니다~ {macro.adena_per_pickup}",
-                    f"\\f2 {macro.adena_per_pickup}에 {total_count}방 ㄱㄱ",
+                    f"\\f21방 \\f=200 \\f26방 \\f=1200",
                 ]
                 macro.arduino_type_string(random.choice(_ad_formats))
                 _last_type_string_time = time.time()
